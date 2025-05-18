@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
         <div className="flex flex-wrap items-center justify-center md:justify-between text-sm text-gray-500 gap-4">
           <button className="flex items-center space-x-1 hover:text-gray-700 transition">
             <Globe size={16} />
-            <span>Language (EN)</span>
+            <span>Language (KR)</span>
           </button>
           <span>© {new Date().getFullYear()} SafeShare</span>
           <Link href="/about" className="hover:text-gray-700 transition">

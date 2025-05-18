@@ -181,38 +181,7 @@ const Header: React.FC = () => {
                           Settings
                         </Link>
                       </li>
-                      <li>
-                        <Link
-                          href="/orders"
-                          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                        >
-                          My Orders
-                        </Link>
-                      </li>
-                      <li>
-                        <Link
-                          href="/cart"
-                          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                        >
-                          Shopping Cart
-                        </Link>
-                      </li>
-                      <li>
-                        <Link
-                          href="/marks"
-                          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                        >
-                          My Marks
-                        </Link>
-                      </li>
-                      <li>
-                        <Link
-                          href="/support"
-                          className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                        >
-                          Support
-                        </Link>
-                      </li>
+
                       <li>
                         <Link
                           href="/about"
@@ -226,7 +195,7 @@ const Header: React.FC = () => {
                           href="/language"
                           className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                         >
-                          Language (EN)
+                          Language (KR)
                         </Link>
                       </li>
                       <li>

@@ -33,10 +33,10 @@ export default function MessagesPage() {
   const mockChats: ChatSummary[] = [
     {
       id: '1',
-      name: '나뭇가지 위의 달',
-      lastMessage: '모드 본문: https://pan.baidu.com/…',
+      name: '더미데이터',
+      lastMessage: '메시지 내용 테스트...',
       date: '2025-04-19T12:00:00',
-      price: '2.00엔/월',
+      price: '암호화됨',
       unread: true,
       avatarUrl: '/default-avatar.png',
     },
@@ -47,8 +47,7 @@ export default function MessagesPage() {
       {
         id: 'm1',
         author: 'them',
-        content:
-          '모드 본문:\nhttps://pan.baidu.com/s/1_eKLozUMPZ7wIcaVsifivA?pwd=moon\n모드 설치 방법: https://www.caimogu.cc/post/publish.html?cid=447',
+        content: '메시지기능용 더미데이터 입니다',
         timestamp: '2025-03-09T19:27:30',
       },
       // … 기타 메세지 …
@@ -226,7 +225,7 @@ export default function MessagesPage() {
               rows={1}
               value={newMsg}
               onChange={(e) => setNewMsg(e.target.value)}
-              placeholder="귀하의 답변..."
+              placeholder="메시지 입력..."
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-600"
             />
             <button
