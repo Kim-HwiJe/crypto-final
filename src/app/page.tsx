@@ -36,7 +36,7 @@ const HomePage = async () => {
               Upload⚡
             </button>
           </Link>
-          <Link href="/register">
+          <Link href="/signup">
             <button className="bg-purple-100 hover:bg-purple-200 text-purple-600 px-6 py-3 rounded-md font-medium transition">
               register
             </button>

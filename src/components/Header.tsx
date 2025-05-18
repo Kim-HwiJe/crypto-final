@@ -159,7 +159,7 @@ const Header: React.FC = () => {
                     <ul className="py-2">
                       <li>
                         <Link
-                          href="/mypage"
+                          href="/user/me"
                           className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                         >
                           My Page

@@ -162,8 +162,10 @@ export default async function FileDetailPage({
 
       {/* 상세 정보 영역 */}
       <div className="space-y-6">
-        {/* 업로더 */}
-        <div className="flex items-center gap-3">
+        <Link
+          href={`/user/${encodeURIComponent(file.ownerEmail)}`}
+          className="flex items-center gap-3 hover:underline"
+        >
           <Image
             src={file.ownerAvatar}
             alt={`${file.ownerName} 아바타`}
@@ -175,8 +177,7 @@ export default async function FileDetailPage({
             <p className="text-sm text-gray-500">업로더</p>
             <p className="font-medium text-purple-500">{file.ownerName}</p>
           </div>
-        </div>
-
+        </Link>
         {/* 메타 */}
         <div className="flex items-center justify-between text-xs text-gray-400 space-x-2">
           <span>
