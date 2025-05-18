@@ -7,6 +7,7 @@ import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
+import FollowButton from '@/components/FollowButton'
 
 // — 사용자 정보 타입
 type UserInfo = {
@@ -40,13 +41,9 @@ const ICON_MAP: Record<string, string> = {
 }
 
 interface PageProps {
-  // Next.js 가 넘겨주는 params 는 Promise 안에 들어 있으니 Promise<...> 로 타입 지정
   params: Promise<{ userId: string }>
 }
 
-/**
- * 페이지 메타 (동적 title)
- */
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -55,21 +52,21 @@ export async function generateMetadata({
   return { title: `프로필 – ${email}` }
 }
 
-/**
- * 프로필 페이지 자체
- */
 export default async function UserPage({ params }: PageProps) {
-  // 1) params 풀어내기
+  // 1) URL params 에서 email 꺼내기
   const { userId } = await params
   const email = decodeURIComponent(userId)
 
-  // 2) 내 세션 (내 페이지인지 확인)
+  // 2) 내 세션 조회 (내 페이지인지 확인)
   const session = await getServerSession(authOptions)
   const me = session?.user?.email
+  const isMyPage = me === email
 
-  // 3) DB에서 유저 정보 (your-db-name.users)
+  // 3) DB 커넥션
   const client = await clientPromise
   const userDb = client.db('your-db-name')
+
+  // 4) 사용자 정보 조회
   const user = await userDb.collection<UserInfo>('users').findOne({ email })
   if (!user) {
     return (
@@ -79,9 +76,9 @@ export default async function UserPage({ params }: PageProps) {
     )
   }
 
-  // 4) 기본 DB.files 에서 업로드한 파일들
-  const fileDb = client.db()
-  const files = await fileDb
+  // 5) 내가 업로드한 파일들 조회 (기본 DB.files)
+  const files = await client
+    .db()
     .collection('files')
     .find({ ownerEmail: email })
     .sort({ createdAt: -1 })
@@ -98,7 +95,27 @@ export default async function UserPage({ params }: PageProps) {
     isLocked: f.isLocked,
   }))
 
-  const isMyPage = me === email
+  // 6) (본인 페이지인 경우) follows 컬렉션에서 내가 팔로우한 이메일 목록 가져오기
+  let followUsers: UserInfo[] = []
+  if (isMyPage) {
+    const followDocs = await client
+      .db() // 기본 DB
+      .collection<{ follower: string; following: string }>('follows')
+      .find({ follower: email })
+      .toArray()
+
+    const followingEmails = followDocs.map((d) => d.following)
+
+    if (followingEmails.length) {
+      followUsers = await userDb
+        .collection<UserInfo>('users')
+        .find(
+          { email: { $in: followingEmails } },
+          { projection: { password: 0 } }
+        )
+        .toArray()
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
@@ -115,6 +132,8 @@ export default async function UserPage({ params }: PageProps) {
           <h1 className="text-2xl font-bold text-purple-600">{user.name}</h1>
           <p className="text-gray-500">{user.email}</p>
         </div>
+        {/* 내 페이지가 아니면 팔로우 버튼 */}
+        {!isMyPage && <FollowButton targetEmail={email} />}
       </div>
 
       {/* 업로드 파일 리스트 */}
@@ -139,7 +158,6 @@ export default async function UserPage({ params }: PageProps) {
                 href={`/file/${f.id}`}
                 className="flex items-center bg-white rounded shadow hover:shadow-lg transition p-4 space-x-4"
               >
-                {/* 카테고리 아이콘 */}
                 <div className="flex-shrink-0">
                   <Image
                     src={ICON_MAP[f.category] || ICON_MAP['기타']}
@@ -148,8 +166,6 @@ export default async function UserPage({ params }: PageProps) {
                     height={40}
                   />
                 </div>
-
-                {/* 파일 정보 */}
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-800">{f.title}</h3>
                   <p className="text-sm text-gray-500">{f.originalName}</p>
@@ -176,6 +192,39 @@ export default async function UserPage({ params }: PageProps) {
           </div>
         )}
       </section>
+
+      {/* 내가 팔로우한 사용자 (본인 페이지일 때만) */}
+      {isMyPage && (
+        <section>
+          <h2 className="text-xl font-semibold mb-4 text-gray-400">
+            내가 팔로우한 사용자
+          </h2>
+          {followUsers.length === 0 ? (
+            <p className="text-gray-500">아직 팔로우한 사용자가 없습니다.</p>
+          ) : (
+            <div className="flex flex-wrap gap-6">
+              {followUsers.map((u) => (
+                <Link
+                  key={u._id.toString()}
+                  href={`/user/${encodeURIComponent(u.email)}`}
+                  className="flex flex-col items-center space-y-2 bg-white p-4 rounded shadow hover:shadow-lg transition w-32"
+                >
+                  <Image
+                    src={u.avatarUrl || '/default-avatar.png'}
+                    alt={`${u.name} 아바타`}
+                    width={64}
+                    height={64}
+                    className="rounded-full"
+                  />
+                  <span className="text-sm font-medium text-gray-800">
+                    {u.name}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   )
 }
