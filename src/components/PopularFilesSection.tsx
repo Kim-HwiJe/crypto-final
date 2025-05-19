@@ -3,7 +3,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 
 interface FileCard {
   id: string
@@ -34,17 +34,22 @@ const ICON_MAP: Record<string, string> = {
 const PopularFilesSection: React.FC<Props> = ({ files, categories }) => {
   const [selectedCat, setSelectedCat] = useState<string>('전체')
 
-  // 필터링
-  const filtered =
-    selectedCat === '전체'
-      ? files
-      : files.filter((f) => f.category === selectedCat)
+  // 전체 선택 시: 조회수 내림차순으로 상위 3개
+  // 그 외 카테고리: 해당 카테고리 전체
+  const filtered = useMemo(() => {
+    if (selectedCat === '전체') {
+      return [...files].sort((a, b) => b.views - a.views).slice(0, 3)
+    }
+    return files.filter((f) => f.category === selectedCat)
+  }, [selectedCat, files])
 
   return (
     <section className="space-y-6">
       <h2 className="text-3xl font-semibold text-purple-600 text-center">
         인기 있는 파일들
       </h2>
+
+      {/* 카테고리 탭 */}
       <div className="flex flex-wrap justify-center gap-3">
         <button
           onClick={() => setSelectedCat('전체')}
@@ -70,61 +75,68 @@ const PopularFilesSection: React.FC<Props> = ({ files, categories }) => {
           </button>
         ))}
       </div>
+
+      {/* 파일 카드 그리드 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {filtered.length === 0 && (
+        {filtered.length === 0 ? (
           <div className="col-span-full text-center text-gray-400 py-10">
             해당 카테고리의 파일이 없습니다.
           </div>
-        )}
-        {filtered.map((file) => {
-          // 파일 형식별 아이콘 선택
-          const icon = ICON_MAP[file.category] || ICON_MAP['기타']
-          return (
-            <div
-              key={file.id}
-              className="bg-white shadow-md rounded-lg overflow-hidden"
-            >
-              {/* 아이콘 표시 */}
-              <div className="h-40 bg-gray-200 flex items-center justify-center">
-                <Image
-                  src={icon}
-                  alt={`${file.category} 아이콘`}
-                  width={64}
-                  height={64}
-                  className="object-contain"
-                />
-              </div>
-              <div className="p-4 space-y-3">
-                <div className="flex items-center gap-3">
+        ) : (
+          filtered.map((file) => {
+            const icon = ICON_MAP[file.category] || ICON_MAP['기타']
+            return (
+              <div
+                key={file.id}
+                className="bg-white shadow-md rounded-lg overflow-hidden"
+              >
+                {/* 파일 아이콘 */}
+                <div className="h-40 bg-gray-200 flex items-center justify-center">
                   <Image
-                    src={file.avatar || '/avatars/default.png'}
-                    alt="avatar"
-                    width={40}
-                    height={40}
-                    className="rounded-full"
+                    src={icon}
+                    alt={`${file.category} 아이콘`}
+                    width={64}
+                    height={64}
+                    className="object-contain"
                   />
-                  <div>
-                    <h3 className="font-semibold text-gray-800">
-                      {file.title}
-                    </h3>
-                    <span className="text-sm text-gray-700">
-                      {file.ownerName}
-                    </span>
+                </div>
+                <div className="p-4 space-y-3">
+                  {/* 업로더 정보 */}
+                  <div className="flex items-center gap-3">
+                    <Image
+                      src={file.avatar || '/avatars/default.png'}
+                      alt="avatar"
+                      width={40}
+                      height={40}
+                      className="rounded-full"
+                    />
+                    <div>
+                      <h3 className="font-semibold text-gray-800">
+                        {file.title}
+                      </h3>
+                      <span className="text-sm text-gray-700">
+                        {file.ownerName}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 간단 설명(원래 originalName) */}
+                  <p className="text-sm text-gray-600">{file.subtitle}</p>
+
+                  {/* 메타: 조회수 & 상세보기 */}
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <span>👁 {file.views} 조회수</span>
+                    <Link href={`/file/${file.id}`}>
+                      <button className="text-purple-600 hover:underline">
+                        Details
+                      </button>
+                    </Link>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">{file.subtitle}</p>
-                <div className="flex items-center justify-between text-sm text-gray-600">
-                  <span>👁 {file.views} 조회수</span>
-                  <Link href={`/file/${file.id}`}>
-                    <button className="text-purple-600 hover:underline">
-                      Details
-                    </button>
-                  </Link>
-                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        )}
       </div>
     </section>
   )

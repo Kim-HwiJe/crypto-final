@@ -16,6 +16,7 @@ import {
 import React, { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import useSWR from 'swr'
+import { useRouter } from 'next/navigation'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -26,6 +27,23 @@ const Header: React.FC = () => {
 
   const [isMsgMenuOpen, setIsMsgMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [searchType, setSearchType] = useState<'user' | 'file'>('user') // 검색 타입 상태
+  const [searchQuery, setSearchQuery] = useState('')
+  const router = useRouter()
+
+  const handleSearch = () => {
+    const q = searchQuery.trim()
+    if (q) {
+      router.push(`/search?query=${encodeURIComponent(q)}&type=${searchType}`)
+    }
+  }
+
+  const onKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSearch()
+    }
+  }
 
   return (
     <header className="w-full bg-white shadow-md">
@@ -51,13 +69,31 @@ const Header: React.FC = () => {
             <Compass size={18} /> <span>Explore</span>
           </Link>
 
-          <div className="flex items-center bg-gray-100 rounded-lg px-3 py-1">
+          {/* Search Bar */}
+          <div className="flex-shrink flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-1">
             <Search size={16} className="text-gray-500" />
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={onKeyDown}
               placeholder="Search..."
-              className="bg-transparent focus:outline-none ml-2 text-gray-600"
+              className="bg-transparent focus:outline-none text-gray-600 flex-grow"
             />
+            <select
+              value={searchType}
+              onChange={(e) => setSearchType(e.target.value as 'user' | 'file')}
+              className="bg-transparent text-gray-600 outline-none"
+            >
+              <option value="user">사용자</option>
+              <option value="file">파일</option>
+            </select>
+            <button
+              onClick={handleSearch}
+              className="px-2 font-medium text-purple-600 hover:text-purple-700"
+            >
+              검색
+            </button>
           </div>
         </nav>
 
