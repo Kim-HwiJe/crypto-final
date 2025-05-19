@@ -1,7 +1,6 @@
-// src/app/settings/page.tsx
 'use client'
 
-import { useState, ChangeEvent, FormEvent } from 'react'
+import { useState, ChangeEvent, FormEvent, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
@@ -11,7 +10,11 @@ import { EyeOff } from 'lucide-react'
 
 export default function SettingsPage() {
   const { data: session } = useSession()
-  const user = session?.user
+  type UserWithDescription = typeof session extends { user: infer U }
+    ? U & { name?: string; image?: string; description?: string }
+    : { name?: string; image?: string; description?: string }
+
+  const user = session?.user as UserWithDescription
   const router = useRouter()
 
   // ─── 프로필 업데이트 상태 ─────────────────────────
@@ -20,11 +23,25 @@ export default function SettingsPage() {
     user?.image || '/default-avatar.png'
   )
   const [name, setName] = useState(user?.name || '')
-  const [gender, setGender] = useState('')
-  const [birthDate, setBirthDate] = useState('')
+  const [description, setDescription] = useState('') // 간단한 설명 추가
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
+
+  // 설명 값이 있을 경우 불러오기
+  useEffect(() => {
+    async function loadUserProfile() {
+      const res = await fetch('/api/user/profile')
+      const data = await res.json()
+      if (res.ok) {
+        setDescription(data.description || '') // 설명 불러오기
+      } else {
+        toast.error(data.message || '프로필 로드 실패')
+      }
+    }
+
+    loadUserProfile()
+  }, [])
 
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -40,8 +57,7 @@ export default function SettingsPage() {
 
     const formData = new FormData()
     formData.append('name', name)
-    formData.append('gender', gender)
-    formData.append('birthDate', birthDate)
+    formData.append('description', description) // 간단한 설명 추가
     if (avatarFile) formData.append('avatar', avatarFile)
 
     const res = await fetch('/api/user/profile', {
@@ -50,8 +66,10 @@ export default function SettingsPage() {
     })
     const data = await res.json()
     if (res.ok) {
-      toast.success('프로필이 저장되었습니다.')
+      toast.success('프로필이 저장되었습니다!')
       mutate('/api/user/me')
+      setStatusMsg('저장되었습니다!')
+      router.refresh() // 리프레시
     } else {
       toast.error(data.message || '저장 중 오류가 발생했습니다.')
     }
@@ -60,6 +78,13 @@ export default function SettingsPage() {
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault()
     setStatusMsg(null)
+
+    // 비밀번호 검증
+    if (!oldPassword || !newPassword) {
+      setStatusMsg('비밀번호를 입력해주세요.')
+      return
+    }
+
     const res = await fetch('/api/user/password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -67,17 +92,17 @@ export default function SettingsPage() {
     })
     const data = await res.json()
     if (res.ok) {
-      toast.success('비밀번호가 변경되었습니다.')
+      toast.success('비밀번호가 변경되었습니다!')
       setOldPassword('')
       setNewPassword('')
       mutate('/api/user/me')
+      setStatusMsg('비밀번호가 변경되었습니다!')
+      router.refresh() // 리프레시
     } else {
       toast.error(data.message || '비밀번호 변경에 실패했습니다.')
+      setStatusMsg('비밀번호가 틀렸습니다!')
     }
   }
-
-  const maskEmail = (email: string) =>
-    email.replace(/^(.{2}).+(@.+)$/, '$1***$2')
 
   // ─── 탈퇴하기 로직 ────────────────────────────────
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -163,29 +188,15 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-purple-600">
-              Gender
-            </label>
-            <select
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded p-2 text-gray-800"
-            >
-              <option value="">Select gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div>
             <label className="block text-sm font-medium text-gray-700">
-              Birth Date
+              간단한 설명
             </label>
-            <input
-              type="date"
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
-              className="mt-1 border border-gray-300 rounded p-2 text-gray-800"
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="mt-1 w-full border-b border-gray-300 focus:outline-none focus:border-purple-500 text-gray-800"
+              placeholder="자기소개나 간단한 설명을 입력해주세요."
+              required
             />
           </div>
           <button
@@ -197,21 +208,7 @@ export default function SettingsPage() {
         </form>
       </section>
 
-      {/* Account Info */}
-      <section className="bg-white p-6 rounded-lg shadow space-y-4">
-        <div>
-          <h3 className="text-sm font-medium text-gray-500">Email</h3>
-          <p className="mt-1 text-gray-900">
-            {user?.email && maskEmail(user.email)}
-          </p>
-        </div>
-        <div>
-          <h3 className="text-sm font-medium text-gray-500">Phone</h3>
-          <button className="mt-1 text-purple-600">Click to bind phone</button>
-        </div>
-      </section>
-
-      {/* Change Password */}
+      {/* 비밀번호 변경 */}
       <section className="bg-white p-6 rounded-lg shadow space-y-4">
         <h2 className="text-xl font-semibold text-purple-600">비밀번호 변경</h2>
         <form onSubmit={handleChangePassword} className="space-y-3">

@@ -1,19 +1,13 @@
-// src/app/api/file/[id]/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId, GridFSBucket } from 'mongodb'
 import { hash as bcryptHash } from 'bcryptjs'
 
 export const runtime = 'nodejs'
 
-/**
- * GET    /api/file/[id]  → 메타 조회 + 조회수 증가
- * PATCH  /api/file/[id]  → 메타 수정
- * DELETE /api/file/[id]  → GridFS 파일 + 메타 삭제
- */
-
+// 파일 정보 조회
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -54,9 +48,11 @@ export async function GET(
     ownerAvatar: doc.ownerAvatar,
     createdAt: doc.createdAt.toISOString(),
     views: doc.views ?? 0,
+    lockPassword: doc.lockPassword, // Add this field to get the latest password
   })
 }
 
+// 파일 정보 수정
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
@@ -86,7 +82,7 @@ export async function PATCH(
     expiresAt,
     isEncrypted,
     algorithm,
-    lockPassword,
+    lockPassword, // 복호화 비밀번호
   } = body
 
   const client = await clientPromise
@@ -112,7 +108,10 @@ export async function PATCH(
   if (isEncrypted !== undefined) {
     updateFields.isEncrypted = isEncrypted
     updateFields.algorithm = isEncrypted ? algorithm : null
+
+    // 복호화 비밀번호 변경
     if (isEncrypted && lockPassword) {
+      // 새로운 비밀번호로 업데이트
       updateFields.lockPassword = await bcryptHash(lockPassword, 10)
     } else {
       updateFields.lockPassword = null
@@ -124,6 +123,7 @@ export async function PATCH(
   return NextResponse.json({ message: '메타데이터가 수정되었습니다.' })
 }
 
+// 파일 삭제
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }

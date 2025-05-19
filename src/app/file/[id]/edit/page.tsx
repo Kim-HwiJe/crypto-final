@@ -1,10 +1,10 @@
-// src/app/file/[id]/edit/page.tsx
 'use client'
 
 import React, { useState, useEffect, FormEvent } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff } from 'lucide-react'
+import bcrypt from 'bcryptjs' // bcryptjs 라이브러리 사용
 
 const categories = [
   '음악',
@@ -40,8 +40,16 @@ export default function EditFilePage() {
   const [algorithm, setAlgorithm] = useState<(typeof algorithms)[number]>(
     algorithms[0]
   )
+
+  // 기존 복호화 비밀번호 해시
+  const [originalHash, setOriginalHash] = useState<string>('')
+
+  // 새 비밀번호 입력 필드
   const [decryptPassword, setDecryptPassword] = useState('')
+  const [newDecryptPassword, setNewDecryptPassword] = useState('')
   const [showDecryptPassword, setShowDecryptPassword] = useState(false)
+
+  const [isPasswordCorrect, setIsPasswordCorrect] = useState(false)
 
   // 1) 초기 데이터 로드
   useEffect(() => {
@@ -61,14 +69,23 @@ export default function EditFilePage() {
       if (data.isEncrypted) {
         setMode('encrypted')
         setAlgorithm(data.algorithm || algorithms[0])
+        setOriginalHash(data.lockPassword || '') // 기존 비밀번호 해시 저장
       } else {
         setMode('public')
       }
-      // 비밀번호는 보안상 불러오지 않으므로 빈 문자열
-      setDecryptPassword('')
+      setDecryptPassword('') // 초기화
     }
     load()
   }, [id])
+
+  // 비밀번호 확인 함수
+  const checkPassword = async () => {
+    const isMatch = await bcrypt.compare(decryptPassword, originalHash)
+    setIsPasswordCorrect(isMatch)
+    if (!isMatch) {
+      toast.error('기존 비밀번호가 틀립니다.')
+    }
+  }
 
   // 2) 폼 제출 핸들러
   const handleSubmit = async (e: FormEvent) => {
@@ -84,12 +101,18 @@ export default function EditFilePage() {
         return
       }
     }
-    // 암호화 모드일 때 비밀번호 필수
-    if (mode === 'encrypted' && !decryptPassword) {
-      toast.error('복호화 비밀번호를 입력해주세요.')
+
+    // 기존 비밀번호가 맞을 때만 진행
+    if (!isPasswordCorrect) {
+      toast.error('기존 비밀번호를 확인해주세요.')
       setLoading(false)
       return
     }
+
+    // 새 비밀번호가 입력되었으면 해시화
+    const hashedPassword = newDecryptPassword
+      ? await bcrypt.hash(newDecryptPassword, 10)
+      : originalHash // 새 비밀번호가 비워져 있으면 기존 해시 사용
 
     // PATCH 바디 구성
     const body: any = {
@@ -99,7 +122,7 @@ export default function EditFilePage() {
       expiresAt: expiresAt || null,
       isEncrypted: mode === 'encrypted',
       algorithm: mode === 'encrypted' ? algorithm : undefined,
-      lockPassword: mode === 'encrypted' ? decryptPassword : undefined,
+      lockPassword: mode === 'encrypted' ? hashedPassword : undefined,
     }
 
     const res = await fetch(`/api/file/${id}`, {
@@ -171,83 +194,6 @@ export default function EditFilePage() {
             ))}
           </select>
         </div>
-
-        {/* 공개 vs 암호화 */}
-        <div className="space-y-2">
-          <p className="font-medium text-gray-700">공개 설정</p>
-          <div className="flex items-center space-x-6">
-            <label className="flex items-center space-x-2 text-gray-700">
-              <input
-                type="radio"
-                name="mode"
-                checked={mode === 'public'}
-                onChange={() => setMode('public')}
-              />
-              <span>공개</span>
-            </label>
-            <label className="flex items-center space-x-2 text-gray-700">
-              <input
-                type="radio"
-                name="mode"
-                checked={mode === 'encrypted'}
-                onChange={() => setMode('encrypted')}
-              />
-              <span>암호화</span>
-            </label>
-          </div>
-        </div>
-
-        {/* 암호화 옵션 (선택 시) */}
-        {mode === 'encrypted' && (
-          <>
-            {/* 알고리즘 */}
-            <div>
-              <label className="block mb-1 font-medium text-gray-700">
-                암호화 방식
-              </label>
-              <select
-                value={algorithm}
-                onChange={(e) =>
-                  setAlgorithm(e.target.value as (typeof algorithms)[number])
-                }
-                className="w-full border px-3 py-2 rounded text-gray-700"
-              >
-                {algorithms.map((alg) => (
-                  <option key={alg} value={alg}>
-                    {alg}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {/* 복호화 비밀번호 */}
-            <div>
-              <label className="block mb-1 font-medium text-gray-700">
-                복호화 비밀번호
-              </label>
-              <div className="relative">
-                <input
-                  type={showDecryptPassword ? 'text' : 'password'}
-                  value={decryptPassword}
-                  onChange={(e) => setDecryptPassword(e.target.value)}
-                  className="w-full border px-3 py-2 rounded text-gray-700 pr-10"
-                  placeholder="복호화 비밀번호"
-                  required
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-3 flex items-center"
-                  onClick={() => setShowDecryptPassword((v) => !v)}
-                >
-                  {showDecryptPassword ? (
-                    <EyeOff size={20} className="text-gray-500" />
-                  ) : (
-                    <Eye size={20} className="text-gray-500" />
-                  )}
-                </button>
-              </div>
-            </div>
-          </>
-        )}
 
         {/* 만료일 */}
         <div>

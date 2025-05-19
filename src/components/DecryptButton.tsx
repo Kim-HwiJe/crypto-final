@@ -1,4 +1,3 @@
-// src/components/DecryptButton.tsx
 'use client'
 
 import React, { useState } from 'react'

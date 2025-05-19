@@ -13,7 +13,7 @@ const ICON_MAP: Record<string, string> = {
   음악: '/icons/audio.png',
   이미지: '/icons/image.png',
   영상: '/icons/video.png',
-  텍스트: '/icons/text.png',
+  텍스트: '/icons/file.png',
   게임: '/icons/game.png',
   소프트웨어: '/icons/software.png',
   기타: '/icons/etc.png',
@@ -37,6 +37,7 @@ type UserInfo = {
   name: string
   email: string
   avatarUrl: string
+  description: string | null // 설명 추가
 }
 
 export const metadata: Metadata = {
@@ -122,6 +123,10 @@ export default async function MyPage() {
         <div>
           <h1 className="text-2xl font-bold text-purple-600">{user.name}</h1>
           <p className="text-gray-500">{user.email}</p>
+          {/* 설명이 있을 경우만 표시 */}
+          {user.description && (
+            <p className="text-sm text-gray-500 mt-2">{user.description}</p>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,3 @@
-// src/app/api/file/[id]/stream/route.ts
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId, GridFSBucket } from 'mongodb'
@@ -9,9 +8,10 @@ export const runtime = 'nodejs'
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } } // ← destructure here
+  { params }: { params: { id: string } }
 ) {
-  const { id } = params
+  const { id } = await params // <- 여기서 `await` 추가
+
   if (!ObjectId.isValid(id)) {
     return NextResponse.json(
       { message: '잘못된 파일 ID입니다.' },
@@ -79,7 +79,7 @@ export async function GET(
     if (meta.isEncrypted && em) {
       const key = Buffer.from(em.key, 'hex')
       const iv = Buffer.from(em.iv, 'hex')
-      const alg = (em.algorithm || '').toLowerCase() // ← normalize
+      const alg = (em.algorithm || '').toLowerCase()
 
       if (['aes-256-gcm', 'chacha20-poly1305'].includes(alg)) {
         const decipher = crypto.createDecipheriv(
@@ -106,13 +106,10 @@ export async function GET(
       }
     }
   }
-  // if no password param, buf is the raw (still-encrypted) bytes
 
-  // 4) 원본 파일명
   const originalName =
     (fileDoc.metadata as any)?.originalName || fileDoc.filename
 
-  // 5) Web ReadableStream으로 감싸서 내려주기
   const webStream = new ReadableStream({
     start(ctrl) {
       ctrl.enqueue(buf)
