@@ -24,10 +24,10 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // 카테고리 → 아이콘 매핑
 const ICON_MAP: Record<string, string> = {
-  음악: '/icons/music.png',
+  음악: '/icons/audio.png',
   이미지: '/icons/image.png',
   영상: '/icons/video.png',
-  텍스트: '/icons/text.png',
+  텍스트: '/icons/file.png',
   게임: '/icons/game.png',
   소프트웨어: '/icons/software.png',
   기타: '/icons/etc.png',
