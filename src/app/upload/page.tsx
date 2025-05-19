@@ -44,7 +44,9 @@ export default function UploadPage() {
   // 만료일
   const [expiresAt, setExpiresAt] = useState('')
 
+  // 로딩 & 진행률
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState(0)
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFile(e.target.files?.[0] ?? null)
@@ -71,40 +73,59 @@ export default function UploadPage() {
     }
 
     setLoading(true)
-    try {
-      const formData = new FormData()
-      formData.append('title', title)
-      formData.append('description', description)
-      formData.append('file', file)
-      formData.append('category', category)
-      // 공개 vs 암호화
-      const isEncrypted = mode === 'encrypted'
-      formData.append('isEncrypted', String(isEncrypted))
-      // 잠금은 암호화 선택 시 강제
-      formData.append('isLocked', String(isEncrypted))
-      if (isEncrypted) {
-        formData.append('lockPassword', decryptPassword)
-        formData.append('algorithm', algorithm)
-      }
-      if (expiresAt) {
-        formData.append('expiresAt', expiresAt)
-      }
+    setProgress(0)
 
-      const res = await fetch('/api/file/upload', {
-        method: 'POST',
-        body: formData,
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.message || '업로드에 실패했습니다.')
-      }
-      toast.success('업로드 성공!')
-      router.push(`/file/${data.id}`)
-    } catch (err: any) {
-      toast.error(err.message)
-    } finally {
-      setLoading(false)
+    const formData = new FormData()
+    formData.append('title', title)
+    formData.append('description', description)
+    formData.append('file', file)
+    formData.append('category', category)
+    const isEncrypted = mode === 'encrypted'
+    formData.append('isEncrypted', String(isEncrypted))
+    formData.append('isLocked', String(isEncrypted))
+    if (isEncrypted) {
+      formData.append('lockPassword', decryptPassword)
+      formData.append('algorithm', algorithm)
     }
+    if (expiresAt) {
+      formData.append('expiresAt', expiresAt)
+    }
+
+    // XMLHttpRequest 로 진행률 추적
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', '/api/file/upload', true)
+
+    // 업로드 진행률
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100)
+        setProgress(percent)
+      }
+    }
+
+    // 완료 처리
+    xhr.onload = () => {
+      setLoading(false)
+      if (xhr.status === 200) {
+        const data = JSON.parse(xhr.responseText)
+        toast.success('업로드 완료!')
+        router.push(`/file/${data.id}`)
+      } else {
+        let msg = '업로드에 실패했습니다.'
+        try {
+          const err = JSON.parse(xhr.responseText)
+          if (err.message) msg = err.message
+        } catch {}
+        toast.error(msg)
+      }
+    }
+
+    xhr.onerror = () => {
+      setLoading(false)
+      toast.error('네트워크 오류로 업로드에 실패했습니다.')
+    }
+
+    xhr.send(formData)
   }
 
   return (
@@ -202,7 +223,6 @@ export default function UploadPage() {
         {/* 암호화 옵션 */}
         {mode === 'encrypted' && (
           <>
-            {/* 알고리즘 */}
             <div>
               <label className="block mb-1 font-medium text-gray-700">
                 암호화 방식
@@ -221,7 +241,6 @@ export default function UploadPage() {
                 ))}
               </select>
             </div>
-            {/* 복호화 비밀번호 */}
             <div>
               <label className="block mb-1 font-medium text-gray-700">
                 복호화 비밀번호
@@ -262,6 +281,16 @@ export default function UploadPage() {
             className="w-full border px-3 py-2 rounded text-gray-700"
           />
         </div>
+
+        {/* 진행바 */}
+        {loading && (
+          <div className="w-full bg-gray-200 rounded h-2 overflow-hidden">
+            <div
+              className="h-full bg-purple-600 transition-width duration-200"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        )}
 
         {/* 제출 버튼 */}
         <button

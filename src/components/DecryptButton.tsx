@@ -1,6 +1,5 @@
 'use client'
-
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -12,74 +11,139 @@ export default function DecryptButton({ fileId }: DecryptButtonProps) {
   const [showInput, setShowInput] = useState(false)
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [buttonLabel, setButtonLabel] = useState('복호화')
+  const [progress, setProgress] = useState(0)
+  const [decrypting, setDecrypting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const streamUrl = (pwd?: string) =>
-    pwd
-      ? `/api/file/${fileId}/stream?password=${encodeURIComponent(pwd)}`
-      : `/api/file/${fileId}/stream`
-
-  const handleClick = () => {
-    if (!showInput) {
-      setShowInput(true)
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!password) {
-      toast.error('비밀번호를 입력해주세요.')
-      return
-    }
-    setLoading(true)
-    try {
-      const url = streamUrl(password)
-      const res = await fetch(url, { method: 'GET' })
-      if (res.status === 401) {
-        setButtonLabel('비밀번호가 틀렸습니다!')
-        setTimeout(() => setButtonLabel('복호화'), 2000)
-      } else if (!res.ok) {
-        const err = await res.json()
-        toast.error(err.message || '복호화에 실패했습니다.')
-      } else {
-        window.open(url, '_blank')
+  // form 외부 클릭 시 닫기
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (
+        showInput &&
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node) &&
+        !decrypting
+      ) {
         setShowInput(false)
+        setErrorMessage(null)
         setPassword('')
       }
-    } catch (err) {
-      console.error(err)
-      toast.error('복호화 중 오류가 발생했습니다.')
-    } finally {
-      setLoading(false)
     }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+    }
+  }, [showInput, decrypting])
+
+  const handleDecryptClick = () => setShowInput(true)
+
+  const handleConfirm = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!password) {
+      setErrorMessage('비밀번호를 입력해주세요')
+      setTimeout(() => setErrorMessage(null), 2000)
+      return
+    }
+
+    setDecrypting(true)
+    setProgress(0)
+
+    const xhr = new XMLHttpRequest()
+    xhr.open(
+      'GET',
+      `/api/file/${fileId}/stream?password=${encodeURIComponent(password)}`,
+      true
+    )
+    xhr.responseType = 'blob'
+
+    xhr.onprogress = (ev) => {
+      if (ev.lengthComputable) {
+        setProgress(Math.round((ev.loaded / ev.total) * 100))
+      }
+    }
+
+    xhr.onload = () => {
+      setDecrypting(false)
+      if (xhr.status === 401) {
+        setErrorMessage('비밀번호가 틀렸습니다!')
+        setTimeout(() => setErrorMessage(null), 2000)
+        return
+      }
+      if (xhr.status !== 200) {
+        toast.error('복호화에 실패했습니다.')
+        return
+      }
+
+      // Content-Disposition 에서 원본 파일명 꺼내기
+      const disp = xhr.getResponseHeader('Content-Disposition') || ''
+      let filename = 'download'
+      const m = /filename\*=UTF-8''(.+)$/.exec(disp)
+      if (m && m[1]) filename = decodeURIComponent(m[1])
+
+      const blob = xhr.response
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+
+      toast.success('다운로드 완료!')
+      setShowInput(false)
+      setPassword('')
+      setProgress(0)
+    }
+
+    xhr.onerror = () => {
+      setDecrypting(false)
+      toast.error('네트워크 오류 발생')
+    }
+
+    xhr.send()
   }
 
   return (
-    <div className="space-y-2">
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        className="w-full px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition disabled:opacity-50"
-      >
-        {loading ? '…' : buttonLabel}
-      </button>
+    <div ref={containerRef} className="space-y-2 w-full max-w-md">
+      {/* 진행률 바 */}
+      {decrypting && (
+        <div className="w-full bg-gray-200 rounded-lg overflow-hidden h-3">
+          <div
+            className="h-full bg-yellow-500 transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
 
+      {/* 복호화 버튼 */}
+      {!showInput && !decrypting && (
+        <button
+          onClick={handleDecryptClick}
+          className="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition"
+        >
+          복호화
+        </button>
+      )}
+
+      {/* 비밀번호 입력 & 확인 */}
       {showInput && (
-        <form onSubmit={handleSubmit} className="flex items-center space-x-2">
-          <div className="relative flex-1">
+        <form onSubmit={handleConfirm} className="space-y-2">
+          <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="비밀번호"
-              className="w-full border border-gray-300 rounded px-3 py-2 pr-10 text-gray-700"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-10 text-gray-600"
+              disabled={decrypting}
               required
             />
             <button
               type="button"
-              className="absolute inset-y-0 right-2 flex items-center"
               onClick={() => setShowPassword((v) => !v)}
+              className="absolute inset-y-0 right-3 flex items-center"
             >
               {showPassword ? (
                 <EyeOff size={20} className="text-gray-500" />
@@ -90,10 +154,10 @@ export default function DecryptButton({ fileId }: DecryptButtonProps) {
           </div>
           <button
             type="submit"
-            disabled={loading}
-            className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded disabled:opacity-50"
+            disabled={decrypting}
+            className="w-full py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition disabled:opacity-50"
           >
-            확인
+            {decrypting ? `${progress}%` : errorMessage ?? '확인'}
           </button>
         </form>
       )}
