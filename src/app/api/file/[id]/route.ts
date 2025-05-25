@@ -12,7 +12,7 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const { id } = params
+  const { id } = await params
   if (!ObjectId.isValid(id)) {
     return NextResponse.json(
       { message: '잘못된 파일 ID입니다.' },

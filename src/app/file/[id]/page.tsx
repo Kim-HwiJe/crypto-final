@@ -203,7 +203,9 @@ export default async function FileDetailPage({
             <div className="flex items-center space-x-4 text-gray-600">
               <Tooltip message="해당 업로더와 메시지하기">
                 <Link
-                  href={`/messages?to=${encodeURIComponent(file.ownerEmail)}`}
+                  href={`/messages?to=${encodeURIComponent(
+                    file.ownerEmail
+                  )}&fileId=${encodeURIComponent(file.id)}`}
                   className="p-2 hover:text-purple-600 transition"
                 >
                   <MessageSquare size={18} />
