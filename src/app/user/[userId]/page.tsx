@@ -15,6 +15,7 @@ type UserInfo = {
   name: string
   email: string
   avatarUrl: string
+  description?: string // 설명 필드 추가
 }
 
 // — 파일 목록 항목 타입
@@ -67,7 +68,9 @@ export default async function UserPage({ params }: PageProps) {
   const userDb = client.db('your-db-name')
 
   // 4) 사용자 정보 조회
-  const user = await userDb.collection<UserInfo>('users').findOne({ email })
+  const user = await userDb
+    .collection<UserInfo>('users')
+    .findOne({ email }, { projection: { password: 0 } })
   if (!user) {
     return (
       <div className="p-6 text-center text-red-500">
@@ -128,9 +131,13 @@ export default async function UserPage({ params }: PageProps) {
           height={80}
           className="rounded-full border"
         />
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-purple-600">{user.name}</h1>
           <p className="text-gray-500">{user.email}</p>
+          {/* 설명이 있을 경우만 표시 */}
+          {user.description && (
+            <p className="mt-2 text-sm text-gray-600">{user.description}</p>
+          )}
         </div>
         {/* 내 페이지가 아니면 팔로우 버튼 */}
         {!isMyPage && <FollowButton targetEmail={email} />}

@@ -1,4 +1,3 @@
-// src/app/api/user/profile/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '../../auth/[...nextauth]/route'
@@ -27,8 +26,7 @@ export async function POST(request: Request) {
   // 2) FormData 파싱
   const formData = await request.formData()
   const name = formData.get('name')?.toString() || ''
-  const gender = formData.get('gender')?.toString() || ''
-  const birthDate = formData.get('birthDate')?.toString() || ''
+  const description = formData.get('description')?.toString() || '' // 설명 값 추가
 
   // 3) Cloudinary에 avatar 업로드
   let avatarUrl: string | undefined
@@ -54,7 +52,7 @@ export async function POST(request: Request) {
   // 4) MongoDB 업데이트
   const client = await clientPromise
   const users = client.db('your-db-name').collection('users')
-  const updateFields: Record<string, any> = { name, gender, birthDate }
+  const updateFields: Record<string, any> = { name, description } // 설명 값 추가
   if (avatarUrl) updateFields.avatarUrl = avatarUrl
 
   await users.updateOne({ email: userEmail }, { $set: updateFields })
@@ -63,5 +61,30 @@ export async function POST(request: Request) {
   return NextResponse.json({
     message: '프로필이 저장되었습니다.',
     avatarUrl, // 프론트에서 이 URL로 preview 갱신 가능
+    description,
+  })
+}
+export async function GET(request: Request) {
+  // 1) 세션 확인
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+  }
+  const userEmail = session.user.email
+
+  // 2) 사용자 프로필 정보 가져오기
+  const client = await clientPromise
+  const users = client.db('your-db-name').collection('users')
+  const user = await users.findOne({ email: userEmail })
+
+  if (!user) {
+    return NextResponse.json({ message: 'User not found' }, { status: 404 })
+  }
+
+  // 3) 사용자 프로필 반환
+  return NextResponse.json({
+    name: user.name,
+    avatarUrl: user.avatarUrl,
+    description: user.description, // 설명 추가
   })
 }

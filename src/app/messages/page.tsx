@@ -1,19 +1,11 @@
 // src/app/messages/page.tsx
 'use client'
 
-import React, { useEffect, useState, FormEvent } from 'react'
+import React, { useEffect, useState, FormEvent, KeyboardEvent } from 'react'
 import Image from 'next/image'
 import { useSession } from 'next-auth/react'
-
-type ChatSummary = {
-  id: string
-  name: string
-  lastMessage: string
-  date: string
-  price?: string
-  unread: boolean
-  avatarUrl: string
-}
+import { useSearchParams } from 'next/navigation'
+import toast from 'react-hot-toast'
 
 type ChatMessage = {
   id: string
@@ -22,63 +14,108 @@ type ChatMessage = {
   timestamp: string
 }
 
+type FileMeta = {
+  title: string
+  originalName: string
+  ownerName: string
+  ownerEmail: string
+}
+
 export default function MessagesPage() {
   const { data: session } = useSession()
-  const [chats, setChats] = useState<ChatSummary[]>([])
-  const [selectedChat, setSelectedChat] = useState<ChatSummary | null>(null)
+  const me = session?.user?.email
+  const searchParams = useSearchParams()
+  const to = searchParams.get('to') || '' // 업로더 이메일
+  const fileId = searchParams.get('fileId') || ''
+
+  const [fileMeta, setFileMeta] = useState<FileMeta | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMsg, setNewMsg] = useState('')
 
-  // 더미 데이터 — 실제 API로 교체하세요
-  const mockChats: ChatSummary[] = [
-    {
-      id: '1',
-      name: '더미데이터',
-      lastMessage: '메시지 내용 테스트...',
-      date: '2025-04-19T12:00:00',
-      price: '암호화됨',
-      unread: true,
-      avatarUrl: '/default-avatar.png',
-    },
-    // … 기타 채팅 목록 …
-  ]
-  const mockMessages: Record<string, ChatMessage[]> = {
-    '1': [
-      {
-        id: 'm1',
-        author: 'them',
-        content: '메시지기능용 더미데이터 입니다',
-        timestamp: '2025-03-09T19:27:30',
-      },
-      // … 기타 메세지 …
-    ],
+  // 채팅방 고유 ID: "to-fileId"
+  const chatId = `${to}-${fileId}`
+
+  // 1) 파일 메타 로드
+  useEffect(() => {
+    if (!fileId) return
+    fetch(`/api/file/${fileId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setFileMeta({
+          title: data.title,
+          originalName: data.originalName,
+          ownerName: data.ownerName,
+          ownerEmail: data.ownerEmail,
+        })
+      })
+      .catch(() => {
+        toast.error('파일 정보를 불러오지 못했습니다.')
+      })
+  }, [fileId])
+
+  // 2) 업로더 아바타 로드
+  useEffect(() => {
+    if (!fileMeta?.ownerEmail) return
+    fetch(`/api/user/${encodeURIComponent(fileMeta.ownerEmail)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('유저 정보를 불러올 수 없습니다.')
+        return res.json()
+      })
+      .then((user) => {
+        setAvatarUrl(user.avatarUrl || '/default-avatar.png')
+      })
+      .catch(() => {
+        // 실패해도 기본 이미지 유지
+      })
+  }, [fileMeta?.ownerEmail])
+
+  // 3) 메시지 불러오기
+  useEffect(() => {
+    if (!me || !to || !fileId) return
+    fetch(`/api/messages?chatId=${encodeURIComponent(chatId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data.messages)) {
+          setMessages(data.messages)
+        } else {
+          toast.error('메시지를 불러오지 못했습니다.')
+        }
+      })
+      .catch(() => {
+        toast.error('메시지 불러오기 중 오류가 발생했습니다.')
+      })
+  }, [me, to, fileId, chatId])
+
+  // 4) 메시지 전송 로직
+  const handleSend = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!newMsg.trim() || !me || !to || !fileId) return
+
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId, to, fileId, content: newMsg.trim() }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.message || '전송에 실패했습니다.')
+      }
+      const sent: ChatMessage = await res.json()
+      setMessages((prev) => [...prev, sent])
+      setNewMsg('')
+    } catch (err: any) {
+      toast.error(err.message)
+    }
   }
 
-  useEffect(() => {
-    setChats(mockChats)
-    setSelectedChat(mockChats[0])
-  }, [])
-
-  useEffect(() => {
-    if (!selectedChat) return
-    setMessages(mockMessages[selectedChat.id] || [])
-    // 읽음 처리
-    setChats((chs) =>
-      chs.map((c) => (c.id === selectedChat.id ? { ...c, unread: false } : c))
-    )
-  }, [selectedChat])
-
-  const handleSend = (e: FormEvent) => {
-    e.preventDefault()
-    if (!newMsg.trim() || !selectedChat) return
-    const msg: ChatMessage = {
-      id: Date.now().toString(),
-      author: 'me',
-      content: newMsg.trim(),
-      timestamp: new Date().toISOString(),
+  // 5) Enter 키로 전송하기
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend(e as unknown as FormEvent)
     }
-    setMessages((ms) => [...ms, msg])
-    setNewMsg('')
   }
 
   // 날짜별 그룹핑
@@ -91,78 +128,55 @@ export default function MessagesPage() {
 
   return (
     <div className="h-screen bg-gray-50">
-      {/* 헤더와 동일한 좌우 여백 */}
       <div className="max-w-7xl mx-auto px-6 flex h-full pt-4">
-        {/* 왼쪽 채팅 목록 */}
+        {/* 왼쪽: 단일 채팅 상대 */}
         <aside className="w-80 bg-white border border-gray-200 rounded-lg overflow-y-auto">
           <h2 className="p-4 font-semibold border-b text-gray-600">메시지</h2>
-          <ul>
-            {chats.map((chat) => (
-              <li
-                key={chat.id}
-                onClick={() => setSelectedChat(chat)}
-                className={`flex items-center p-4 cursor-pointer hover:bg-gray-100 ${
-                  selectedChat?.id === chat.id && 'bg-gray-100 text-purple-600'
-                }`}
-              >
-                <Image
-                  src={chat.avatarUrl}
-                  alt={chat.name}
-                  width={40}
-                  height={40}
-                  className="rounded-full"
-                />
-                <div className="ml-3 flex-1">
-                  <p className="font-medium ">{chat.name}</p>
-                  <p className="text-sm text-gray-500 truncate">
-                    {chat.lastMessage}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-xs text-gray-400">
-                    {new Date(chat.date).toLocaleDateString('ko-KR')}
-                  </span>
-                  {chat.price && (
-                    <span className="text-green-600 text-sm">{chat.price}</span>
-                  )}
-                  {chat.unread && (
-                    <span className="mt-1 block w-2 h-2 bg-red-500 rounded-full" />
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+          {fileMeta && (
+            <div className="flex items-center p-4 cursor-pointer bg-gray-100 text-purple-600">
+              <Image
+                src={avatarUrl}
+                alt={fileMeta.ownerName}
+                width={40}
+                height={40}
+                className="rounded-full"
+              />
+              <div className="ml-3">
+                <p className="font-medium">{fileMeta.ownerName}</p>
+                <p className="text-sm text-gray-500">{fileMeta.ownerEmail}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  파일: {fileMeta.originalName}
+                </p>
+              </div>
+            </div>
+          )}
         </aside>
 
-        {/* 오른쪽 대화창 */}
+        {/* 오른쪽: 대화창 */}
         <section className="flex-1 flex flex-col ml-6 bg-white border border-gray-200 rounded-lg overflow-hidden">
-          {/* 대화 상단 */}
+          {/* 상단 헤더 */}
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center space-x-3">
               <Image
-                src={selectedChat?.avatarUrl || '/default-avatar.png'}
-                alt=""
+                src={avatarUrl}
+                alt={fileMeta?.ownerName ?? ''}
                 width={40}
                 height={40}
                 className="rounded-full"
               />
               <div>
                 <p className="font-semibold text-purple-600">
-                  {selectedChat?.name}
+                  {fileMeta?.ownerName}
                 </p>
-                {selectedChat?.price && (
-                  <p className="text-sm text-green-600">{selectedChat.price}</p>
-                )}
+                <p className="text-sm text-gray-500">{fileMeta?.ownerEmail}</p>
               </div>
             </div>
-            <span className="text-xs text-gray-400">
-              {selectedChat &&
-                new Date(selectedChat.date).toLocaleDateString('ko-KR', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                })}
-            </span>
+            {fileMeta && (
+              <div className="text-right">
+                <p className="font-medium text-gray-800">{fileMeta.title}</p>
+                <p className="text-sm text-gray-500">{fileMeta.originalName}</p>
+              </div>
+            )}
           </div>
 
           {/* 메시지 리스트 */}
@@ -175,23 +189,25 @@ export default function MessagesPage() {
                 {msgs.map((msg) => (
                   <div
                     key={msg.id}
-                    className="flex items-start space-x-2 text-gray-700 mt-2"
+                    className={`flex items-start space-x-2 ${
+                      msg.author === 'me' ? 'justify-end' : ''
+                    }`}
                   >
                     {msg.author === 'them' && (
                       <Image
-                        src={selectedChat?.avatarUrl || '/default-avatar.png'}
-                        alt=""
+                        src={avatarUrl}
+                        alt={fileMeta?.ownerName ?? ''}
                         width={32}
                         height={32}
                         className="rounded-full"
                       />
                     )}
                     <div
-                      className={`prose max-w-prose ${
+                      className={`prose max-w-prose p-4 rounded-lg whitespace-pre-wrap ${
                         msg.author === 'me'
-                          ? 'ml-auto bg-purple-100'
-                          : 'bg-gray-100'
-                      } p-4 rounded-lg whitespace-pre-wrap`}
+                          ? 'ml-auto bg-purple-100 text-purple-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
                     >
                       {msg.content}
                       <div className="text-right text-xs text-gray-400 mt-1">
@@ -204,7 +220,7 @@ export default function MessagesPage() {
                     {msg.author === 'me' && (
                       <Image
                         src={session?.user?.image || '/default-avatar.png'}
-                        alt="Me"
+                        alt="나"
                         width={32}
                         height={32}
                         className="rounded-full"
@@ -225,7 +241,8 @@ export default function MessagesPage() {
               rows={1}
               value={newMsg}
               onChange={(e) => setNewMsg(e.target.value)}
-              placeholder="메시지 입력..."
+              onKeyDown={handleKeyDown}
+              placeholder="메시지 입력... (엔터키로 전송, Shift+Enter 줄바꿈)"
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-600"
             />
             <button

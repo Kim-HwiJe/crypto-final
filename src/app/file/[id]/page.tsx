@@ -1,3 +1,5 @@
+// src/app/file/[id]/page.tsx
+
 import { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -26,9 +28,9 @@ type FileInfo = {
   isLocked: boolean
   isPublic: boolean
   views: number
+  category: string
 }
 
-// 1) 메타데이터는 files 콜렉션에서만!
 async function getFileInfo(id: string): Promise<FileInfo> {
   if (!ObjectId.isValid(id)) throw new Error('잘못된 파일 ID입니다.')
 
@@ -49,6 +51,7 @@ async function getFileInfo(id: string): Promise<FileInfo> {
     isPublic: boolean
     algorithm?: string
     views?: number
+    category: string
   }>({ _id: new ObjectId(id) })
 
   if (!doc) throw new Error('파일을 찾을 수 없습니다.')
@@ -64,14 +67,14 @@ async function getFileInfo(id: string): Promise<FileInfo> {
     ownerEmail: doc.ownerEmail,
     createdAt: doc.createdAt.toISOString(),
     isEncrypted: doc.isEncrypted,
-    algorithm: doc.algorithm ?? doc.encryptionMeta?.algorithm, // ← 이렇게!
+    algorithm: doc.algorithm ?? doc.encryptionMeta?.algorithm,
     isLocked: doc.isLocked,
     isPublic: doc.isPublic,
     views: doc.views ?? 0,
+    category: doc.category,
   }
 }
 
-// 2) 타이틀 메타
 export async function generateMetadata({
   params,
 }: {
@@ -96,71 +99,39 @@ export default async function FileDetailPage({
   const session = await getServerSession(authOptions)
   const me = session?.user?.email
 
-  // 확장자로 타입 판별
-  const ext = file.filename.split('.').pop()?.toLowerCase() || ''
-  const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif'].includes(ext)
-  const isAudio = ['mp3', 'wav', 'ogg'].includes(ext)
-  const isVideo = ['mp4', 'webm', 'ogg'].includes(ext)
-
-  // 기본 아이콘 매핑
-  const ICON_MAP: Record<'image' | 'audio' | 'video' | 'file', string> = {
-    image: '/icons/image.png',
-    audio: '/icons/audio.png',
-    video: '/icons/video.png',
-    file: '/icons/file.png',
+  const ICON_MAP: Record<string, string> = {
+    음악: '/icons/audio.png',
+    이미지: '/icons/image.png',
+    영상: '/icons/video.png',
+    텍스트: '/icons/file.png',
+    게임: '/icons/game.png',
+    소프트웨어: '/icons/software.png',
+    기타: '/icons/etc.png',
   }
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-      {/* Preview 영역 */}
-      <div className="relative w-full h-80 bg-gray-100 rounded-lg overflow-hidden">
-        {file.isPublic && !file.isEncrypted && isImage && (
+      {/* Preview */}
+      <div className="relative w-full h-80 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+        {file.isPublic && !file.isEncrypted ? (
           <Image
             src={`/api/file/${file.id}/stream`}
             alt={file.originalName}
             fill
             className="object-cover"
           />
-        )}
-        {file.isPublic && !file.isEncrypted && isAudio && (
-          <audio
-            src={`/api/file/${file.id}/stream`}
-            controls
-            className="w-full h-full"
+        ) : (
+          <Image
+            src={ICON_MAP[file.category] || ICON_MAP['기타']}
+            alt={`${file.category} 아이콘`}
+            width={64}
+            height={64}
+            className="object-contain"
           />
-        )}
-        {file.isPublic && !file.isEncrypted && isVideo && (
-          <video
-            src={`/api/file/${file.id}/stream`}
-            controls
-            className="w-full h-full object-cover"
-          />
-        )}
-        {!(
-          file.isPublic &&
-          !file.isEncrypted &&
-          (isImage || isAudio || isVideo)
-        ) && (
-          <div className="flex items-center justify-center h-full">
-            <Image
-              src={
-                isImage
-                  ? ICON_MAP.image
-                  : isAudio
-                  ? ICON_MAP.audio
-                  : isVideo
-                  ? ICON_MAP.video
-                  : ICON_MAP.file
-              }
-              alt="파일 아이콘"
-              width={64}
-              height={64}
-            />
-          </div>
         )}
       </div>
 
-      {/* 상세 정보 영역 */}
+      {/* Details */}
       <div className="space-y-6">
         <Link
           href={`/user/${encodeURIComponent(file.ownerEmail)}`}
@@ -178,7 +149,7 @@ export default async function FileDetailPage({
             <p className="font-medium text-purple-500">{file.ownerName}</p>
           </div>
         </Link>
-        {/* 메타 */}
+
         <div className="flex items-center justify-between text-xs text-gray-400 space-x-2">
           <span>
             {new Date(file.createdAt).toLocaleString('ko-KR', {
@@ -211,41 +182,41 @@ export default async function FileDetailPage({
           </div>
         </div>
 
-        {/* 제목 & 원본명 */}
         <h1 className="text-2xl font-bold text-gray-600">{file.title}</h1>
         <h2 className="text-2xl font-bold text-gray-400">
           {file.originalName}
         </h2>
 
-        {/* 설명 */}
         {file.description && (
           <p className="text-gray-700 whitespace-pre-wrap">
             {file.description}
           </p>
         )}
 
-        {/* 액션 버튼 */}
         {me === file.ownerEmail ? (
           <OwnerActions fileId={file.id} />
         ) : (
           <div className="flex flex-col md:flex-row gap-4">
-            {/* 다운로드 버튼 */}
             <DownloadButton fileId={file.id} />
-
-            {/* 암호화된 파일일 때만 복호화 버튼 */}
             {file.isEncrypted && <DecryptButton fileId={file.id} />}
 
-            {/* 메시지/공유 */}
-            <div className="flex-1 flex items-center space-x-4 text-gray-600">
-              <Link
-                href={`/messages?to=${encodeURIComponent(file.ownerName)}`}
-                className="flex items-center gap-1 hover:text-purple-600 transition"
-              >
-                <MessageSquare size={18} /> 메시지
-              </Link>
-              <button className="flex items-center gap-1 hover:text-purple-600 transition">
-                <Share2 size={18} /> 공유하기
-              </button>
+            <div className="flex items-center space-x-4 text-gray-600">
+              <Tooltip message="해당 업로더와 메시지하기">
+                <Link
+                  href={`/messages?to=${encodeURIComponent(
+                    file.ownerEmail
+                  )}&fileId=${encodeURIComponent(file.id)}`}
+                  className="p-2 hover:text-purple-600 transition"
+                >
+                  <MessageSquare size={18} />
+                </Link>
+              </Tooltip>
+
+              <Tooltip message="해당 게시글 공유하기">
+                <button className="p-2 hover:text-purple-600 transition">
+                  <Share2 size={18} />
+                </button>
+              </Tooltip>
             </div>
           </div>
         )}
