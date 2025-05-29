@@ -13,8 +13,8 @@ const Footer: React.FC = () => {
             <span>Language (KR)</span>
           </button>
           <span>© {new Date().getFullYear()} SafeShare</span>
-          <Link href="/about" className="hover:text-gray-700 transition">
-            About SafeShare
+          <Link href="/aboutus" className="hover:text-gray-700 transition">
+            About Us
           </Link>
           <Link href="/terms" className="hover:text-gray-700 transition">
             Terms of service
