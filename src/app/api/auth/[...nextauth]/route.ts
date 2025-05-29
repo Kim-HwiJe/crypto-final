@@ -1,12 +1,18 @@
 // src/app/api/auth/[...nextauth]/route.ts
-import NextAuth from 'next-auth/next'
-import { NextAuthOptions } from 'next-auth'
+import NextAuth from 'next-auth'
+import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import GoogleProvider from 'next-auth/providers/google'
 import { compare } from 'bcryptjs'
 import clientPromise from '@/lib/mongodb'
 
-// (If you added custom JWT encode/decode, you can re-add it below in the exact shape NextAuth expects.)
+import jsonwebtoken from 'jsonwebtoken'
+import type { JWT } from 'next-auth/jwt'
+import type { JWTEncodeParams, JWTDecodeParams } from 'next-auth/jwt'
+
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error('❌ NEXTAUTH_SECRET is not defined in .env')
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -40,10 +46,48 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
-    maxAge: 2 * 60 * 60, // 2 hours
+    maxAge: 2 * 60 * 60, // 2시간
+  },
+
+  jwt: {
+    maxAge: 2 * 60 * 60, // session.maxAge 와 동일
+
+    // 1) 토큰 발급: exp, iat, aud 제거 후 HS512 로 서명
+    async encode({ token, secret, maxAge }: JWTEncodeParams): Promise<string> {
+      if (!token) throw new Error('No token to encode')
+      const t = token as any
+      // 기존에 붙어있는 exp, iat, aud 속성 제거
+      const { exp, iat, aud, ...payload } = t
+      return jsonwebtoken.sign(
+        payload as Record<string, unknown>,
+        secret as string,
+        {
+          algorithm: 'HS512',
+          expiresIn: maxAge,
+          audience: 'people',
+          // subject: token.sub, // 필요 시 활성화
+        }
+      )
+    },
+
+    // 2) 토큰 검증: HS512, audience 동일하게 체크
+    async decode({ token, secret }: JWTDecodeParams): Promise<JWT | null> {
+      if (!token) return null
+      try {
+        const decoded = jsonwebtoken.verify(token, secret as string, {
+          algorithms: ['HS512'],
+          audience: 'people',
+        })
+        return decoded as JWT
+      } catch (err) {
+        console.error('🔐 JWT 검증 실패:', err)
+        return null
+      }
+    },
   },
 
   callbacks: {
+    // 로그인 시 JWT 에 유저 정보 심기
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id
@@ -53,6 +97,8 @@ export const authOptions: NextAuthOptions = {
       }
       return token
     },
+
+    // 클라이언트에 내려줄 session 에 이미지 포함
     async session({ session, token }) {
       session.user = {
         id: token.sub! as string,
@@ -63,10 +109,6 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
-
-  // If you need custom JWT signing (HS512, audience, etc),
-  // you can add the `jwt` block here, but start simple and
-  // re-introduce it once the basic flow works.
 }
 
 const handler = NextAuth(authOptions)
