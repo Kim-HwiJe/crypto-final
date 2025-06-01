@@ -294,6 +294,7 @@ export default function AnimatedCharacter({
             wordBreak: 'keep-all',
             overflowWrap: 'break-word',
             zIndex: 60,
+            color: 'black',
 
             // ▶ 말풍선이 페이드 인 → 머무름 → 페이드 아웃 하도록 애니메이션 적용
             animation: `fadeInOut ${bubbleDuration}ms ease-in-out forwards`,

@@ -4,6 +4,8 @@ import React from 'react'
 import { getPopularFilesAll } from '@/utils/getPopularFilesByCategory'
 import PopularFilesSection from '@/components/PopularFilesSection'
 
+export const dynamic = 'force-dynamic'
+
 const categories = [
   '음악',
   '이미지',

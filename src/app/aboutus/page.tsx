@@ -118,11 +118,11 @@ export default function TeamPage() {
                 className="rounded-full"
               />
               <div>
-                <h2 className="text-2xl font-bold text-gray-500">
+                <h2 className="text-2xl font-bold text-purple-500">
                   {selectedMember.name}
                 </h2>
                 <p className="text-gray-500 mb-2">{selectedMember.role}</p>
-                <p>{selectedMember.description}</p>
+                <p className="text-gray-500">{selectedMember.description}</p>
 
                 {selectedMember.studentId && (
                   <p className="mt-1 text-sm text-gray-600">

@@ -10,7 +10,9 @@ export default function HomePage() {
 
   return (
     <main className="max-w-7xl mx-auto px-6 py-8 flex flex-col space-y-6">
-      <h1 className="text-3xl font-bold">🔐 암호화 알고리즘 소개</h1>
+      <h1 className="text-3xl font-bold text-purple-500">
+        🔐 암호화 알고리즘 소개
+      </h1>
       <p className="text-gray-700">
         아래 알고리즘들을 클릭하면 정의와 장점, 구조 이미지를 확인할 수
         있습니다.

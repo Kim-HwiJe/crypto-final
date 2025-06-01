@@ -217,14 +217,7 @@ const Header: React.FC = () => {
                           My Page
                         </Link>
                       </li>
-                      <li>
-                        <Link
-                          href="/dashboard"
-                          className="block px-4 py-2 hover:bg-gray-100 text-gray-700"
-                        >
-                          Dashboard
-                        </Link>
-                      </li>
+
                       <li>
                         <Link
                           href="/settings"
