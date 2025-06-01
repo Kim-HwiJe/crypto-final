@@ -12,6 +12,7 @@ import OwnerActions from './OwnerActions'
 import DownloadButton from '@/components/DownloadButton'
 import DecryptButton from '@/components/DecryptButton'
 import Tooltip from '@/components/Tooltip'
+import ShareLink from '@/components/ShareLink'
 
 type FileInfo = {
   id: string
@@ -213,9 +214,7 @@ export default async function FileDetailPage({
               </Tooltip>
 
               <Tooltip message="해당 게시글 공유하기">
-                <button className="p-2 hover:text-purple-600 transition">
-                  <Share2 size={18} />
-                </button>
+                <ShareLink />
               </Tooltip>
             </div>
           </div>

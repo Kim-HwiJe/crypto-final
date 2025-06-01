@@ -3,7 +3,10 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import FloatingSidebar from '@/components/FloatingSidebar'
 import { Providers } from './providers'
+import { Toaster } from 'react-hot-toast'
+import AnimatedCharacter from '@/components/AnimatedCharacter'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -32,8 +35,13 @@ export default function RootLayout({
       >
         <Providers>
           <Header />
-          {children}
+          <FloatingSidebar />
+          <div className="max-w-7xl mx-auto px-6">
+            {children}
+            <AnimatedCharacter />
+          </div>
           <Footer />
+          <Toaster position="top-center" />
         </Providers>
       </body>
     </html>

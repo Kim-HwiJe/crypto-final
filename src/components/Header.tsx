@@ -243,10 +243,10 @@ const Header: React.FC = () => {
                       </li>
                       <li>
                         <Link
-                          href="/language"
+                          href="/crypto-intro"
                           className="block px-4 py-2 hover:bg-gray-100 text-gray-700"
                         >
-                          Language (KR)
+                          암호화 기술에 대해
                         </Link>
                       </li>
                       <li>
