@@ -69,7 +69,11 @@ export default function TeamPage() {
         {members.map((member) => (
           <div
             key={member.name}
+<<<<<<< HEAD
             className="text-center cursor-pointer transition hover:scale-105 text-gray-500"
+=======
+            className="text-center cursor-pointer transition hover:scale-105"
+>>>>>>> ed3f063f940461505644945557acf144a8169662
             onClick={() => setSelectedMember(member)}
           >
             <Image
@@ -113,9 +117,13 @@ export default function TeamPage() {
                 className="rounded-full"
               />
               <div>
+<<<<<<< HEAD
                 <h2 className="text-2xl font-bold text-gray-500">
                   {selectedMember.name}
                 </h2>
+=======
+                <h2 className="text-2xl font-bold">{selectedMember.name}</h2>
+>>>>>>> ed3f063f940461505644945557acf144a8169662
                 <p className="text-gray-500 mb-2">{selectedMember.role}</p>
                 <p>{selectedMember.description}</p>
 

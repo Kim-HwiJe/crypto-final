@@ -36,10 +36,14 @@ export default function RootLayout({
         <Providers>
           <Header />
           <FloatingSidebar />
+<<<<<<< HEAD
           <div className="max-w-7xl mx-auto px-6">
             {children}
             <AnimatedCharacter />
           </div>
+=======
+          {children}
+>>>>>>> ed3f063f940461505644945557acf144a8169662
           <Footer />
           <Toaster position="top-center" />
         </Providers>
