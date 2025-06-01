@@ -1,18 +1,28 @@
+// src/app/messages/page.tsx
 'use client'
 
-import React, { useEffect, useState, FormEvent, KeyboardEvent } from 'react'
+import React, {
+  useEffect,
+  useState,
+  FormEvent,
+  KeyboardEvent,
+  MouseEvent,
+} from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import toast from 'react-hot-toast'
 import { mutate } from 'swr'
 
-// 채팅 메시지 타입
+// 채팅 메시지 타입 (edited 플래그 추가)
 type ChatMessage = {
   id: string
   author: 'me' | 'them'
   content: string
   timestamp: string
+  edited?: boolean
 }
+
 // 파일별 대화방 타입
 type ChatRoom = {
   fileId: string
@@ -20,6 +30,7 @@ type ChatRoom = {
   originalName: string
   unreadCount: number
 }
+
 // 사용자별 채팅 목록 타입
 type ChatWithUser = {
   userEmail: string
@@ -51,6 +62,13 @@ export default function MyMessage() {
   // 메시지 & 입력 상태
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMsg, setNewMsg] = useState('')
+
+  // 편집 중인 메시지 ID → 수정 입력값
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+
+  // “버튼 보이기”용 선택된 메시지 ID
+  const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null)
 
   // 1) 채팅 목록 로드
   useEffect(() => {
@@ -117,6 +135,7 @@ export default function MyMessage() {
     fetch(`/api/messages?chatId=${encodeURIComponent(chatId)}`)
       .then((res) => res.json())
       .then((data) => {
+        // 서버에서 edited 여부도 리턴한다고 가정
         setMessages(data.messages)
         // 읽음 처리 후 뱃지 감소 위해 채팅 목록 재조회
         mutate('/api/messages/unreadCount')
@@ -161,6 +180,52 @@ export default function MyMessage() {
     }
   }
 
+  // 메시지 삭제
+  const deleteMessage = async (msgId: string) => {
+    if (!activeUser || !activeRoom) return
+    try {
+      const res = await fetch(`/api/messages/${msgId}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error('삭제 실패')
+      setMessages((prev) => prev.filter((m) => m.id !== msgId))
+      setSelectedMsgId(null)
+      mutate('/api/messages/unreadCount')
+      const chats = await fetch('/api/messages/chats').then((r) => r.json())
+      setChatList(chats)
+    } catch {
+      toast.error('메시지 삭제에 실패했습니다.')
+    }
+  }
+
+  // 메시지 수정 저장
+  const saveEdit = async (msgId: string) => {
+    if (!editContent.trim()) return
+    try {
+      const res = await fetch(`/api/messages/${msgId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editContent.trim() }),
+      })
+      if (!res.ok) throw new Error('수정 실패')
+      // 로컬 상태 업데이트
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? { ...m, content: editContent.trim(), edited: true }
+            : m
+        )
+      )
+      setEditingId(null)
+      setEditContent('')
+      setSelectedMsgId(null)
+      const chats = await fetch('/api/messages/chats').then((r) => r.json())
+      setChatList(chats)
+    } catch {
+      toast.error('메시지 수정에 실패했습니다.')
+    }
+  }
+
   // 날짜별 그룹핑
   const grouped = messages.reduce<Record<string, ChatMessage[]>>((acc, msg) => {
     const d = new Date(msg.timestamp).toLocaleDateString('ko-KR')
@@ -168,6 +233,25 @@ export default function MyMessage() {
     acc[d].push(msg)
     return acc
   }, {})
+
+  // 말풍선을 클릭했을 때 'selectedMsgId' 업데이트
+  const handleBubbleClick = (msgId: string, e: MouseEvent) => {
+    e.stopPropagation()
+    setSelectedMsgId((prev) => (prev === msgId ? null : msgId))
+    // 편집 중이었다면 편집 모드 닫기
+    setEditingId(null)
+  }
+
+  // 화면 어디든 클릭하면 선택 해제 (버튼 숨기기)
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setSelectedMsgId(null)
+    }
+    window.addEventListener('click', handleClickOutside)
+    return () => {
+      window.removeEventListener('click', handleClickOutside)
+    }
+  }, [])
 
   return (
     <div className="h-screen bg-gray-50">
@@ -265,18 +349,23 @@ export default function MyMessage() {
             ) : (
               <p className="text-gray-500">대화를 선택해 주세요</p>
             )}
+
             {activeRoom && (
-              <div className="text-right">
+              // 파일명 영역을 Link로 감싸서 클릭 시 상세페이지로 이동
+              <Link
+                href={`/file/${activeRoom.fileId}`}
+                className="text-right hover:underline"
+              >
                 <p className="font-medium text-gray-800">{activeRoom.title}</p>
                 <p className="text-sm text-gray-500">
                   {activeRoom.originalName}
                 </p>
-              </div>
+              </Link>
             )}
           </div>
 
           {/* 메시지 리스트 */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-6">
+          <div className="flex-1 p-4 overflow-y-auto space-y-6 ">
             {Object.entries(grouped).map(([date, msgs]) => (
               <div key={date}>
                 <div className="text-center text-gray-500 text-sm mb-4">
@@ -288,7 +377,13 @@ export default function MyMessage() {
                     className={`flex items-start space-x-2 ${
                       msg.author === 'me' ? 'justify-end' : ''
                     }`}
+                    onClick={(e) => {
+                      // 오른쪽 메시지(내 메시지)만 클릭 시 선택 가능
+                      if (msg.author === 'me' && editingId !== msg.id)
+                        handleBubbleClick(msg.id, e)
+                    }}
                   >
+                    {/* 상대방 아바타 */}
                     {msg.author === 'them' && (
                       <Image
                         src={profile?.avatarUrl || '/default-avatar.png'}
@@ -298,22 +393,101 @@ export default function MyMessage() {
                         className="rounded-full"
                       />
                     )}
-                    <div
-                      className={`prose max-w-prose p-4 rounded-lg whitespace-pre-wrap ${
-                        msg.author === 'me'
-                          ? 'ml-auto mb-2 bg-purple-100 text-purple-800'
-                          : 'mb-2 bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {msg.content}
-                      <div className="text-right text-xs text-gray-400 mt-1">
-                        {new Date(msg.timestamp).toLocaleTimeString('ko-KR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </div>
+
+                    {/* 메시지 – 편집 모드 분기 */}
+                    <div className="max-w-[70%] relative">
+                      {editingId === msg.id ? (
+                        // 편집 모드: textarea + 저장/취소 버튼
+                        <div className="space-y-2">
+                          <textarea
+                            rows={2}
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-800"
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingId(null)
+                                setEditContent('')
+                              }}
+                              className="px-3 py-1 text-sm text-gray-600 hover:underline"
+                            >
+                              취소
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                saveEdit(msg.id)
+                              }}
+                              className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
+                            >
+                              저장
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        // 일반 표시 모드
+                        <div>
+                          <div
+                            className={`prose max-w-prose p-4 mt-2 rounded-lg whitespace-pre-wrap ${
+                              msg.author === 'me'
+                                ? 'ml-auto mb-0 bg-purple-100 text-purple-800'
+                                : 'mb-0 bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            <span>{msg.content}</span>
+                            {msg.edited && (
+                              <span className="ml-2 text-xs text-gray-500">
+                                (수정됨)
+                              </span>
+                            )}
+                            <div className="text-right text-xs text-gray-400 mt-1">
+                              {new Date(msg.timestamp).toLocaleTimeString(
+                                'ko-KR',
+                                {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                }
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 선택된 메시지에 한해 하단에 “수정/삭제” 버튼 표시 */}
+                          {selectedMsgId === msg.id && (
+                            <div className="flex space-x-2 mt-1 ml-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setEditingId(msg.id)
+                                  setEditContent(msg.content)
+                                  setSelectedMsgId(null)
+                                }}
+                                className="text-xs text-gray-500 hover:text-purple-600"
+                                aria-label="편집"
+                              >
+                                수정
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  deleteMessage(msg.id)
+                                }}
+                                className="text-xs text-gray-500 hover:text-red-600"
+                                aria-label="삭제"
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {msg.author === 'me' && (
+
+                    {/* 내 아바타 (편집 모드와 선택된 메시지 제외) */}
+                    {msg.author === 'me' && editingId !== msg.id && (
                       <Image
                         src={session?.user?.image || '/default-avatar.png'}
                         alt="나"
