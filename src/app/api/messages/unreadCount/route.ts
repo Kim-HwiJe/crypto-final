@@ -1,7 +1,7 @@
 // src/app/api/messages/unreadCount/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import clientPromise from '@/lib/mongodb'
 
 export const runtime = 'nodejs'

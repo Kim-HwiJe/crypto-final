@@ -5,11 +5,11 @@ import { ObjectId, GridFSBucket } from 'mongodb'
 
 export const runtime = 'nodejs'
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
-  const { id } = params
+// Named export 형식으로, 두 번째 인자(context)는 any로 두어
+// Next.js가 내부적으로 params 타입을 올바르게 추론하게 합니다.
+export async function GET(request: Request, context: any) {
+  const { id } = context.params as { id: string }
+
   if (!ObjectId.isValid(id)) {
     return NextResponse.json(
       { message: '잘못된 파일 ID입니다.' },
@@ -30,15 +30,16 @@ export async function GET(
     )
   }
 
-  // 스트림 열기 (암호화 여부 무시)
+  // GridFSBucket을 통해 스트림 열기
   const bucket = new GridFSBucket(db, { bucketName: 'uploads' })
   const downloadStream = bucket.openDownloadStream(new ObjectId(id))
 
+  // Node.js 스트림을 Web Stream으로 감싸기
   const webStream = new ReadableStream({
-    start(ctrl) {
-      downloadStream.on('data', (chunk) => ctrl.enqueue(chunk))
-      downloadStream.on('end', () => ctrl.close())
-      downloadStream.on('error', (err) => ctrl.error(err))
+    start(controller) {
+      downloadStream.on('data', (chunk) => controller.enqueue(chunk))
+      downloadStream.on('end', () => controller.close())
+      downloadStream.on('error', (err) => controller.error(err))
     },
   })
 

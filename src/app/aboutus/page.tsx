@@ -1,5 +1,10 @@
+// ───────────────────────────────────────────────────────────────────────────
+//  파일 경로: src/app/aboutus/page.tsx
+// ───────────────────────────────────────────────────────────────────────────
+
 'use client'
 
+import React from 'react' // ← 여기 추가
 import { useState } from 'react'
 import Image from 'next/image'
 
@@ -17,7 +22,7 @@ const members: Member[] = [
     name: '강희수',
     role: '조장',
     imageUrl: '/1.png',
-    description: '프로젝트 총괄 밑 전반 제작',
+    description: '프로젝트 총괄 및 전반 제작',
     github: 'https://github.com/persipica',
     studentId: '91913127',
   },
@@ -31,9 +36,9 @@ const members: Member[] = [
   },
   {
     name: '김영욱',
-    role: '메세지',
+    role: '메시지',
     imageUrl: '/3.png',
-    description: '메세지 모듈을 담당하였습니다.',
+    description: '메시지 모듈을 담당하였습니다.',
     github: '',
     studentId: '',
   },
@@ -69,11 +74,7 @@ export default function TeamPage() {
         {members.map((member) => (
           <div
             key={member.name}
-<<<<<<< HEAD
             className="text-center cursor-pointer transition hover:scale-105 text-gray-500"
-=======
-            className="text-center cursor-pointer transition hover:scale-105"
->>>>>>> ed3f063f940461505644945557acf144a8169662
             onClick={() => setSelectedMember(member)}
           >
             <Image
@@ -117,13 +118,9 @@ export default function TeamPage() {
                 className="rounded-full"
               />
               <div>
-<<<<<<< HEAD
                 <h2 className="text-2xl font-bold text-gray-500">
                   {selectedMember.name}
                 </h2>
-=======
-                <h2 className="text-2xl font-bold">{selectedMember.name}</h2>
->>>>>>> ed3f063f940461505644945557acf144a8169662
                 <p className="text-gray-500 mb-2">{selectedMember.role}</p>
                 <p>{selectedMember.description}</p>
 

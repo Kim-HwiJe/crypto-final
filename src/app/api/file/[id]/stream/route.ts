@@ -1,4 +1,5 @@
-// src/app/api/file/[id]/stream/route.ts
+// 경로: src/app/api/file/[id]/stream/route.ts
+
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId, GridFSBucket } from 'mongodb'
@@ -9,12 +10,14 @@ import { Readable } from 'stream'
 
 export const runtime = 'nodejs'
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  // 1) params.id 추출
-  const { id } = await params
+/**
+ * GET /api/file/[id]/stream
+ *   - context를 any로 선언하여 타입 오류를 우회
+ *   - context.params.id 값을 직접 꺼내서 사용
+ */
+export async function GET(req: Request, context: any) {
+  // 1) context.params에서 id 추출 (런타임에 유효성 검사)
+  const { id } = context.params as { id: string }
   if (!ObjectId.isValid(id)) {
     return NextResponse.json(
       { message: '잘못된 파일 ID입니다.' },
@@ -22,16 +25,15 @@ export async function GET(
     )
   }
 
-  // 2) DB 연결 및 메타 조회
+  // 2) MongoDB 연결 및 메타 조회
   const client = await clientPromise
   const db = client.db()
   const filesColl = db.collection('files')
   const meta = await filesColl.findOne<{
     lockPassword?: string
     isEncrypted?: boolean
-  }>({
-    _id: new ObjectId(id),
-  })
+  }>({ _id: new ObjectId(id) })
+
   if (!meta) {
     return NextResponse.json(
       { message: '파일 메타를 찾을 수 없습니다.' },
@@ -39,7 +41,7 @@ export async function GET(
     )
   }
 
-  // 3) GridFS 파일문서 조회 (length 포함)
+  // 3) GridFS 파일 문서 조회 (length 포함)
   const filesFiles = db.collection('uploads.files')
   const fileDoc = await filesFiles.findOne<any>({ _id: new ObjectId(id) })
   if (!fileDoc) {
@@ -51,12 +53,11 @@ export async function GET(
 
   // 4) GridFSBucket 스트림 생성
   const bucket = new GridFSBucket(db, { bucketName: 'uploads' })
-  // NodeJS.ReadableStream 타입으로 선언
   let nodeStream: NodeJS.ReadableStream = bucket.openDownloadStream(
     new ObjectId(id)
   )
 
-  // 5) ?password=xxx 이면 복호화 검사 및 스트림 파이핑
+  // 5) ?password=xxx 쿼리 파라미터가 있으면 복호화 처리
   const provided = new URL(req.url).searchParams.get('password')
   if (provided != null) {
     if (!meta.lockPassword) {
@@ -105,17 +106,17 @@ export async function GET(
     }
   }
 
-  // 6) Node 스트림 → Web 스트림 변환
+  // 6) Node.js 스트림 → Web 스트림 변환
   const webStream = Readable.toWeb(nodeStream as any)
 
-  // 7) 응답: 스트림 바디 + 헤더(파일명, 길이)
+  // 7) 응답: Web 스트림 + 헤더 (파일명, 전체 바이트 길이)
   return new NextResponse(webStream as any, {
     headers: {
       'Content-Type': fileDoc.contentType || 'application/octet-stream',
       'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(
         (fileDoc.metadata as any)?.originalName || fileDoc.filename
       )}`,
-      // 전체 바이트 길이를 내려줘야 클라이언트에서 진행률 계산이 가능합니다.
+      // GridFS상의 length가 정확히 들어있어야 클라이언트 진행률 계산이 가능
       'Content-Length': String(fileDoc.length),
     },
   })

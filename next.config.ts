@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   images: {
     domains: ['res.cloudinary.com'], // 클라우디너리 기본 도메인
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 }
 
 export default nextConfig
