@@ -38,7 +38,7 @@ const members: Member[] = [
     name: '김영욱',
     role: '메시지',
     imageUrl: '/3.png',
-    description: '메시지 모듈을 담당하였습니다.',
+    description: '메시지 기능 제작 시도.',
     github: '',
     studentId: '',
   },
