@@ -101,9 +101,15 @@ const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
   const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
 
   useEffect(() => {
+    // ownerEmail이 undefined가 아닌지 확인
+    if (!file.ownerEmail) {
+      console.warn('ownerEmail is undefined for file:', file.id)
+      return
+    }
+
     const fetchAvatar = async () => {
       try {
-        // user/avatar API는 your-db-name DB에서 유저의 avatarUrl만 가져옴
+        // your-db-name DB에서 유저의 avatarUrl만 가져오는 API 호출
         const res = await fetch(
           `/api/user/avatar?email=${encodeURIComponent(file.ownerEmail)}`
         )
@@ -118,7 +124,7 @@ const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
       }
     }
     fetchAvatar()
-  }, [file.ownerEmail])
+  }, [file.ownerEmail, file.id])
 
   const icon = ICON_MAP[file.category] || ICON_MAP['기타']
 
