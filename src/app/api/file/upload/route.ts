@@ -14,7 +14,7 @@ import fs from 'fs'
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
-  // 0) 로그인 확인 (기존 로직 그대로)
+  // 0) 로그인 확인
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -32,11 +32,10 @@ export async function POST(request: Request) {
   const formData = await request.formData()
 
   // ——————————————————————
-  // *1) 우선 “청크 업로드 모드”인지 확인 *
-  // 청크 업로드 모드인 경우, formData에 chunk, filename, chunkIndex, totalChunks 필드가 있음
+  // “청크 업로드 모드”인지 구분
   const chunkBlob = formData.get('chunk') as Blob | null
   if (chunkBlob) {
-    // → 청크 모드: 임시 폴더에 저장만 하고, 마지막 청크가 아닐 때는 응답만 반환
+    // → 청크 모드: filename, chunkIndex, totalChunks 로 처리
     const filename = formData.get('filename')?.toString() || ''
     const chunkIndex = parseInt(
       formData.get('chunkIndex')?.toString() || '0',
@@ -54,48 +53,48 @@ export async function POST(request: Request) {
       )
     }
 
-    // 임시 청크 디렉토리 설정
-    const tempDir = './tmp-chunks'
+    // **Vercel 환경용 임시 폴더** → /tmp/tmp-chunks
+    const tempDir = '/tmp/tmp-chunks'
     if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir)
+      fs.mkdirSync(tempDir, { recursive: true })
     }
 
-    // 청크마다 파일명: `<원본파일명>.chunk-<chunkIndex>`
+    // 각 청크를 디스크에 저장
     const tempFilePath = path.join(tempDir, `${filename}.chunk-${chunkIndex}`)
-    // Blob → Buffer로 변환해서 디스크에 저장
+    // Blob → Buffer로 변환 후 저장
     fs.writeFileSync(tempFilePath, Buffer.from(await chunkBlob.arrayBuffer()))
 
-    // 현재까지 저장된 청크 파일 목록 중 이 파일과 동일한 접두어를 가지는 파일들 조회
+    // 지금까지 저장된 청크 파일 목록 추출
     const uploadedChunks = fs
       .readdirSync(tempDir)
-      .filter((f) => f.startsWith(filename + '.chunk-'))
+      .filter((f) => f.startsWith(`${filename}.chunk-`))
 
-    // 아직 청크가 다 모이지 않았다면, “청크 저장만 완료” 응답
+    // 아직 청크가 모두 모이지 않으면 “청크 업로드 완료”만 응답
     if (uploadedChunks.length < totalChunks) {
       return NextResponse.json({ message: '청크 업로드 완료' })
     }
 
     // ——————————————————————
-    // *모든 청크가 모였을 때 실행되는 구간*
-    // 2) 전체 파일 합치기
-    // 업로드된 청크들을 index 순서대로 정렬
+    // *모든 청크가 모였을 때 한 번만 실행되는 구간*
+    // 2) 청크 파일들을 인덱스 순서대로 정렬
     const sortedChunks = uploadedChunks
       .map((name) => {
-        // 파일명이 "myfile.mp3.chunk-3" 이런 식이므로, 뒤 숫자를 꺼내 정렬
         const idx = parseInt(name.split('.chunk-')[1], 10)
         return { name, idx }
       })
       .sort((a, b) => a.idx - b.idx)
       .map((obj) => obj.name)
 
-    // 모든 청크를 Buffer로 읽어 이어 붙이기
+    // 3) 디스크에 있는 청크들을 합쳐서 하나의 Buffer 생성
     const fullFileBuffer = Buffer.concat(
       sortedChunks.map((chunkFileName) =>
         fs.readFileSync(path.join(tempDir, chunkFileName))
       )
     )
 
-    // 3) (원래 로직) 원본명, 메타데이터 등 가져오기
+    // ——————————————————————
+    // 이하 “원래 단일 업로드 로직” 그대로 처리
+    // (암호화 → GridFS 업로드 → 메타 저장 → 임시 청크 파일 삭제)
     const originalName = filename
     const title = formData.get('title')?.toString() || ''
     const description = formData.get('description')?.toString() || ''
@@ -116,7 +115,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4) 암호화 (원래 로직 그대로)
+    // 4) 암호화 (fullFileBuffer 기준)
     let buffer = fullFileBuffer
     let encryptionMeta: Record<string, string> = {}
     if (isEncrypted) {
@@ -141,6 +140,7 @@ export async function POST(request: Request) {
         )
       }
 
+      // fullFileBuffer 전체를 암호화
       const encrypted = Buffer.concat([
         cipher.update(fullFileBuffer),
         cipher.final(),
@@ -159,7 +159,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5) GridFS 업로드 (원래 로직 그대로)
+    // 5) GridFS 업로드
     const client = await clientPromise
     const db = client.db()
     const bucket = new GridFSBucket(db, { bucketName: 'uploads' })
@@ -167,7 +167,6 @@ export async function POST(request: Request) {
     const ext = path.extname(originalName)
     const filenameGridFS = `${uuidv4()}${ext}`
 
-    // Buffer → Readable 스트림으로 변환
     const readStream = Readable.from(buffer)
     const uploadStream = bucket.openUploadStream(filenameGridFS, {
       metadata: {
@@ -184,9 +183,8 @@ export async function POST(request: Request) {
       },
     })
 
-    // 업로드 완료 대기
-    await new Promise<void>((resolve, reject) =>
-      readStream.pipe(uploadStream).on('error', reject).on('finish', resolve)
+    await new Promise<void>((res, rej) =>
+      readStream.pipe(uploadStream).on('error', rej).on('finish', res)
     )
     const fileId = uploadStream.id as ObjectId
 
@@ -196,7 +194,7 @@ export async function POST(request: Request) {
       hashedLockPassword = await bcryptHash(rawLockPwd, 10)
     }
 
-    // 7) 메타 저장 (원래 로직 그대로)
+    // 7) 메타 저장
     await db.collection('files').insertOne({
       _id: fileId,
       title,
@@ -220,12 +218,11 @@ export async function POST(request: Request) {
       fs.unlinkSync(path.join(tempDir, chunkFileName))
     )
 
-    // 최종 업로드 결과 반환
     return NextResponse.json({ id: fileId.toString() })
   }
 
   // ——————————————————————
-  // 만약 “chunk” 필드가 없으면 → 기존 단일 파일 업로드 로직 수행
+  // “단일 업로드 모드” (chunk 필드가 없는 경우)
   // 2) formData에서 file Blob 가져오기
   const title = formData.get('title')?.toString() || ''
   const description = formData.get('description')?.toString() || ''
@@ -259,10 +256,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // 3) 파일 버퍼
+  // 3) 파일 버퍼 (원본 Blob → Buffer)
   const origBuffer = Buffer.from(await fileBlob.arrayBuffer())
 
-  // 4) 암호화 (선택 시)
+  // 4) 암호화 (원래 로직과 동일)
   let buffer = origBuffer
   let encryptionMeta: Record<string, string> = {}
   if (isEncrypted) {
@@ -302,7 +299,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // 5) GridFS 업로드
+  // 5) GridFS 업로드 (원래 로직과 동일)
   const client = await clientPromise
   const db = client.db()
   const bucket = new GridFSBucket(db, { bucketName: 'uploads' })
