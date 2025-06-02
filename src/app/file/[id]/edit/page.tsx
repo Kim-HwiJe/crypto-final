@@ -33,24 +33,6 @@ export default function EditFilePage() {
   )
   const [expiresAt, setExpiresAt] = useState('')
 
-  // 공개 vs 암호화 모드
-  const [mode, setMode] = useState<'public' | 'encrypted'>('public')
-
-  // 암호화 옵션
-  const [algorithm, setAlgorithm] = useState<(typeof algorithms)[number]>(
-    algorithms[0]
-  )
-
-  // 기존 복호화 비밀번호 해시
-  const [originalHash, setOriginalHash] = useState<string>('')
-
-  // 새 비밀번호 입력 필드
-  const [decryptPassword, setDecryptPassword] = useState('')
-  const [newDecryptPassword, setNewDecryptPassword] = useState('')
-  const [showDecryptPassword, setShowDecryptPassword] = useState(false)
-
-  const [isPasswordCorrect, setIsPasswordCorrect] = useState(false)
-
   // 1) 초기 데이터 로드
   useEffect(() => {
     async function load() {
@@ -64,28 +46,9 @@ export default function EditFilePage() {
       setDescription(data.description || '')
       setCategory(data.category)
       setExpiresAt(data.expiresAt?.slice(0, 10) || '')
-
-      // 모드 & 알고리즘 초기화
-      if (data.isEncrypted) {
-        setMode('encrypted')
-        setAlgorithm(data.algorithm || algorithms[0])
-        setOriginalHash(data.lockPassword || '') // 기존 비밀번호 해시 저장
-      } else {
-        setMode('public')
-      }
-      setDecryptPassword('') // 초기화
     }
     load()
   }, [id])
-
-  // 비밀번호 확인 함수
-  const checkPassword = async () => {
-    const isMatch = await bcrypt.compare(decryptPassword, originalHash)
-    setIsPasswordCorrect(isMatch)
-    if (!isMatch) {
-      toast.error('기존 비밀번호가 틀립니다.')
-    }
-  }
 
   // 2) 폼 제출 핸들러
   const handleSubmit = async (e: FormEvent) => {
@@ -102,27 +65,12 @@ export default function EditFilePage() {
       }
     }
 
-    // 기존 비밀번호가 맞을 때만 진행
-    if (!isPasswordCorrect) {
-      toast.error('기존 비밀번호를 확인해주세요.')
-      setLoading(false)
-      return
-    }
-
-    // 새 비밀번호가 입력되었으면 해시화
-    const hashedPassword = newDecryptPassword
-      ? await bcrypt.hash(newDecryptPassword, 10)
-      : originalHash // 새 비밀번호가 비워져 있으면 기존 해시 사용
-
     // PATCH 바디 구성
     const body: any = {
       title,
       description,
       category,
       expiresAt: expiresAt || null,
-      isEncrypted: mode === 'encrypted',
-      algorithm: mode === 'encrypted' ? algorithm : undefined,
-      lockPassword: mode === 'encrypted' ? hashedPassword : undefined,
     }
 
     const res = await fetch(`/api/file/${id}`, {
