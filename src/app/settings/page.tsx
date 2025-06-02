@@ -75,6 +75,11 @@ export default function SettingsPage() {
     }
   }
 
+  // ─── 비밀번호 변경 부분 ───────────────────────────
+  // 가림/보기 토글 상태
+  const [showOldPwd, setShowOldPwd] = useState(false)
+  const [showNewPwd, setShowNewPwd] = useState(false)
+
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault()
     setStatusMsg(null)
@@ -108,8 +113,6 @@ export default function SettingsPage() {
   const [deletePwd, setDeletePwd] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-
-  // 눈 아이콘으로 비밀번호 보이기/숨기기
   const [showDeletePwd, setShowDeletePwd] = useState(false)
 
   const handleDeleteClick = () => {
@@ -213,7 +216,8 @@ export default function SettingsPage() {
       <section className="bg-white p-6 rounded-lg shadow space-y-4">
         <h2 className="text-xl font-semibold text-purple-600">비밀번호 변경</h2>
         <form onSubmit={handleChangePassword} className="space-y-3">
-          <div>
+          {/* Old Password */}
+          <div className="relative">
             <label className="block text-sm text-gray-500">
               Old password{' '}
               <span className="text-sm text-gray-400">
@@ -221,24 +225,49 @@ export default function SettingsPage() {
               </span>
             </label>
             <input
-              type="password"
+              type={showOldPwd ? 'text' : 'password'}
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded p-2"
+              className="mt-1 w-full border border-gray-300 rounded px-3 py-2 pr-10"
               placeholder="Old password"
             />
+            <button
+              type="button"
+              onClick={() => setShowOldPwd((prev) => !prev)}
+              className="absolute bottom-3 right-2 flex items-center"
+            >
+              {showOldPwd ? (
+                <EyeOff size={20} className="text-gray-500" />
+              ) : (
+                <Eye size={20} className="text-gray-500" />
+              )}
+            </button>
           </div>
-          <div>
+
+          {/* New Password */}
+          <div className="relative">
             <label className="block text-sm text-gray-500">New password</label>
             <input
-              type="password"
+              type={showNewPwd ? 'text' : 'password'}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="mt-1 w-full border border-gray-300 rounded p-2"
+              className="mt-1 w-full border border-gray-300 rounded px-3 py-2 pr-10"
               placeholder="New password"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowNewPwd((prev) => !prev)}
+              className="absolute bottom-3 right-2 flex items-center"
+            >
+              {showNewPwd ? (
+                <EyeOff size={20} className="text-gray-500" />
+              ) : (
+                <Eye size={20} className="text-gray-500" />
+              )}
+            </button>
           </div>
+
           <button
             type="submit"
             className="px-6 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
