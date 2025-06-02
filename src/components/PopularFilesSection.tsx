@@ -3,17 +3,16 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 
 interface FileCard {
   id: string
-  avatar: string
+  ownerId: string // 이메일로 사용
   ownerName: string
   title: string
   subtitle: string
   category: string
   views: number
-  originalName: string
 }
 
 interface Props {
@@ -34,8 +33,6 @@ const ICON_MAP: Record<string, string> = {
 const PopularFilesSection: React.FC<Props> = ({ files, categories }) => {
   const [selectedCat, setSelectedCat] = useState<string>('전체')
 
-  // 전체 선택 시: 조회수 내림차순으로 상위 3개
-  // 그 외 카테고리: 해당 카테고리 전체
   const filtered = useMemo(() => {
     if (selectedCat === '전체') {
       return [...files].sort((a, b) => b.views - a.views).slice(0, 3)
@@ -83,62 +80,83 @@ const PopularFilesSection: React.FC<Props> = ({ files, categories }) => {
             해당 카테고리의 파일이 없습니다.
           </div>
         ) : (
-          filtered.map((file) => {
-            const icon = ICON_MAP[file.category] || ICON_MAP['기타']
-            return (
-              <div
-                key={file.id}
-                className="bg-white shadow-md rounded-lg overflow-hidden"
-              >
-                {/* 파일 아이콘 */}
-                <div className="h-40 bg-gray-200 flex items-center justify-center">
-                  <Image
-                    src={icon}
-                    alt={`${file.category} 아이콘`}
-                    width={64}
-                    height={64}
-                    className="object-contain"
-                  />
-                </div>
-                <div className="p-4 space-y-3">
-                  {/* 업로더 정보 */}
-                  <div className="flex items-center gap-3">
-                    <Image
-                      src={file.avatar || '/avatars/default.png'}
-                      alt="avatar"
-                      width={40}
-                      height={40}
-                      className="rounded-full"
-                    />
-                    <div>
-                      <h3 className="font-semibold text-gray-800">
-                        {file.title}
-                      </h3>
-                      <span className="text-sm text-gray-700">
-                        {file.ownerName}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 간단 설명(원래 originalName) */}
-                  <p className="text-sm text-gray-600">{file.subtitle}</p>
-
-                  {/* 메타: 조회수 & 상세보기 */}
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <span>👁 {file.views} 조회수</span>
-                    <Link href={`/file/${file.id}`}>
-                      <button className="text-purple-600 hover:underline">
-                        Details
-                      </button>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            )
-          })
+          filtered.map((file) => <FileCardItem key={file.id} file={file} />)
         )}
       </div>
     </section>
+  )
+}
+
+interface FileCardItemProps {
+  file: FileCard
+}
+
+const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
+  // 1) 초기값을 default-avatar로 설정
+  const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
+
+  useEffect(() => {
+    // 2) profile/route.ts 에서 해당 이메일의 정보를 가져오도록 변경
+    const fetchAvatar = async () => {
+      try {
+        // 예: GET /api/profile?email=<ownerId>
+        const res = await fetch(
+          `/api/profile?email=${encodeURIComponent(file.ownerId)}`
+        )
+        if (!res.ok) {
+          throw new Error('프로필 정보를 가져오는 데 실패했습니다.')
+        }
+        const data = (await res.json()) as { avatarUrl?: string }
+        setAvatarUrl(data.avatarUrl || '/default-avatar.png')
+      } catch (err) {
+        console.error('아바타 로딩 오류:', err)
+      }
+    }
+    fetchAvatar()
+  }, [file.ownerId])
+
+  const icon = ICON_MAP[file.category] || ICON_MAP['기타']
+
+  return (
+    <div className="bg-white shadow-md rounded-lg overflow-hidden">
+      {/* 파일 아이콘 */}
+      <div className="h-40 bg-gray-200 flex items-center justify-center">
+        <Image
+          src={icon}
+          alt={`${file.category} 아이콘`}
+          width={64}
+          height={64}
+          className="object-contain"
+        />
+      </div>
+      <div className="p-4 space-y-3">
+        {/* 업로더 정보 */}
+        <div className="flex items-center gap-3">
+          <Image
+            src={avatarUrl}
+            alt="uploader avatar"
+            width={40}
+            height={40}
+            className="rounded-full"
+          />
+          <div>
+            <h3 className="font-semibold text-gray-800">{file.title}</h3>
+            <span className="text-sm text-gray-700">{file.ownerName}</span>
+          </div>
+        </div>
+
+        {/* 간단 설명 */}
+        <p className="text-sm text-gray-600">{file.subtitle}</p>
+
+        {/* 메타: 조회수 & 상세보기 */}
+        <div className="flex items-center justify-between text-sm text-gray-600">
+          <span>👁 {file.views} 조회수</span>
+          <Link href={`/file/${file.id}`}>
+            <button className="text-purple-600 hover:underline">Details</button>
+          </Link>
+        </div>
+      </div>
+    </div>
   )
 }
 
