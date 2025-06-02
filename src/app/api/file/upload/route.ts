@@ -45,10 +45,19 @@ export async function POST(request: Request) {
       formData.get('totalChunks')?.toString() || '0',
       10
     )
+    // ① plainLength 받아오기
+    const plainLengthRaw = formData.get('plainLength')?.toString()
+    const plainLength = plainLengthRaw ? parseInt(plainLengthRaw, 10) : null
 
     if (!filename || isNaN(chunkIndex) || isNaN(totalChunks)) {
       return NextResponse.json(
         { message: '청크 정보(파일명/인덱스/총개수)가 올바르지 않습니다.' },
+        { status: 400 }
+      )
+    }
+    if (plainLength == null || isNaN(plainLength)) {
+      return NextResponse.json(
+        { message: 'plainLength가 필요합니다.' },
         { status: 400 }
       )
     }
@@ -180,6 +189,7 @@ export async function POST(request: Request) {
         ownerEmail,
         ownerName,
         ownerAvatar,
+        plainLength, // plainLength를 GridFS metadata에도 저장
       },
     })
 
@@ -194,7 +204,7 @@ export async function POST(request: Request) {
       hashedLockPassword = await bcryptHash(rawLockPwd, 10)
     }
 
-    // 7) 메타 저장
+    // 7) 메타 저장 (files 컬렉션)
     await db.collection('files').insertOne({
       _id: fileId,
       title,
@@ -211,6 +221,7 @@ export async function POST(request: Request) {
       ownerAvatar,
       expiresAt,
       views: 0,
+      plainLength, // files 컬렉션에 plainLength 저장
     })
 
     // 8) 임시 청크 파일 삭제
@@ -230,6 +241,18 @@ export async function POST(request: Request) {
   const category = formData.get('category')?.toString() || ''
   if (!fileBlob) {
     return NextResponse.json({ message: '파일이 필요합니다.' }, { status: 400 })
+  }
+
+  // ② plainLength 받아오기
+  const plainLengthRawSingle = formData.get('plainLength')?.toString()
+  const plainLengthSingle = plainLengthRawSingle
+    ? parseInt(plainLengthRawSingle, 10)
+    : null
+  if (plainLengthSingle == null || isNaN(plainLengthSingle)) {
+    return NextResponse.json(
+      { message: 'plainLength가 필요합니다.' },
+      { status: 400 }
+    )
   }
 
   // 원본명
@@ -320,6 +343,7 @@ export async function POST(request: Request) {
       ownerEmail,
       ownerName,
       ownerAvatar,
+      plainLength: plainLengthSingle, // GridFS metadata에도 plainLength 추가
     },
   })
 
@@ -351,6 +375,7 @@ export async function POST(request: Request) {
     ownerAvatar,
     expiresAt,
     views: 0,
+    plainLength: plainLengthSingle, // files 컬렉션에 plainLength 저장
   })
 
   return NextResponse.json({ id: fileId.toString() })
