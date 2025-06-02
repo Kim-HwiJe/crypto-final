@@ -5,7 +5,6 @@ import clientPromise from '@/lib/mongodb'
 import { ObjectId, GridFSBucket } from 'mongodb'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
-import { pipeline } from 'stream/promises'
 
 export const runtime = 'nodejs'
 
@@ -23,10 +22,13 @@ export async function GET(req: Request, context: any) {
   const client = await clientPromise
   const db = client.db()
   const filesColl = db.collection('files')
+  // 여기서 plainLength도 같이 읽어온다
   const meta = await filesColl.findOne<{
     lockPassword?: string
     isEncrypted?: boolean
+    plainLength?: number
   }>({ _id: new ObjectId(id) })
+
   if (!meta) {
     return NextResponse.json(
       { message: '파일 메타를 찾을 수 없습니다.' },
@@ -34,7 +36,16 @@ export async function GET(req: Request, context: any) {
     )
   }
 
-  // 3) GridFS 파일 문서 조회 (length 포함)
+  // 다운로드 진행률 계산을 위해 plainLength가 반드시 필요
+  const plainLength = meta.plainLength
+  if (plainLength == null) {
+    return NextResponse.json(
+      { message: 'plainLength가 메타에 없습니다.' },
+      { status: 500 }
+    )
+  }
+
+  // 3) GridFS 파일 문서 조회 (contentType, metadata 등)
   const filesFiles = db.collection('uploads.files')
   const fileDoc = await filesFiles.findOne<any>({ _id: new ObjectId(id) })
   if (!fileDoc) {
@@ -47,11 +58,10 @@ export async function GET(req: Request, context: any) {
   // 4) GridFSBucket 스트림 생성
   const bucket = new GridFSBucket(db, { bucketName: 'uploads' })
   let downloadStream = bucket.openDownloadStream(new ObjectId(id))
+  let finalStream: NodeJS.ReadableStream = downloadStream
 
   // 5) ?password=xxx 쿼리 파라미터가 있으면 복호화 처리
   const provided = new URL(req.url).searchParams.get('password')
-  let finalStream: NodeJS.ReadableStream = downloadStream
-
   if (provided != null) {
     if (!meta.lockPassword) {
       return NextResponse.json(
@@ -99,11 +109,12 @@ export async function GET(req: Request, context: any) {
     }
   }
 
-  // 6) Node.js ReadableStream을 Web ReadableStream으로 변환하여 NextResponse에 전달
-  //    Content-Length 헤더를 제거하여 chunked encoding 사용
+  // 6) Node.js ReadableStream을 Web ReadableStream으로 변환
+  //    enqueue 시마다 Uint8Array 로 변환
   const webStream = new ReadableStream({
     async pull(controller) {
       for await (const chunk of finalStream) {
+        // chunk가 Buffer일 경우 Uint8Array로 변환
         controller.enqueue(
           chunk instanceof Buffer ? new Uint8Array(chunk) : chunk
         )
@@ -111,19 +122,20 @@ export async function GET(req: Request, context: any) {
       controller.close()
     },
     cancel() {
-      // Only call destroy if finalStream is a Node.js stream with destroy method
       if (typeof (finalStream as any).destroy === 'function') {
         ;(finalStream as any).destroy()
       }
     },
   })
 
-  return new NextResponse(webStream, {
+  // 7) 응답: Web 스트림 + 헤더(파일명, 전체 바이트 길이=plainLength)
+  return new NextResponse(webStream as any, {
     headers: {
       'Content-Type': fileDoc.contentType || 'application/octet-stream',
       'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(
         (fileDoc.metadata as any)?.originalName || fileDoc.filename
       )}`,
+      'Content-Length': String(plainLength), // 평문 전체 바이트 길이
     },
   })
 }

@@ -83,6 +83,8 @@ export default function UploadPage() {
       formData.append('lockPassword', decryptPassword)
       formData.append('algorithm', algorithm)
       if (expiresAt) formData.append('expiresAt', expiresAt)
+      // plainLength 추가 (원본 파일 크기)
+      formData.append('plainLength', String(file.size))
 
       // XHR 객체 생성
       const xhr = new XMLHttpRequest()
@@ -139,6 +141,9 @@ export default function UploadPage() {
         chunkFormData.append('filename', file.name)
         chunkFormData.append('chunkIndex', String(chunkIndex))
         chunkFormData.append('totalChunks', String(totalChunks))
+
+        // plainLength 추가 (원본 파일 크기)
+        chunkFormData.append('plainLength', String(file.size))
 
         // 기존 메타데이터도 함께 전송 (매번 보내도 무방)
         chunkFormData.append('title', title)
