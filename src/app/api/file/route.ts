@@ -8,7 +8,7 @@ export async function GET() {
   const client = await clientPromise
   const filesColl = client.db().collection('files')
 
-  // 1) files 컬렉션에서 필요한 필드들만 projection
+  // projection에 ownerAvatar 제거 → ownerEmail만 내려준다
   const files = await filesColl
     .find(
       {},
@@ -19,7 +19,7 @@ export async function GET() {
           filename: 1,
           originalName: 1,
           ownerName: 1,
-          ownerAvatar: 1,
+          ownerEmail: 1, // ← 이 필드만 내려준다
           createdAt: 1,
           isEncrypted: 1,
           isLocked: 1,
@@ -30,14 +30,13 @@ export async function GET() {
     )
     .toArray()
 
-  // 2) _id를 string으로 변환해서 클라이언트가 바로 사용할 수 있도록 매핑
   const result = files.map((f) => ({
     id: f._id.toString(),
     title: f.title,
     filename: f.filename,
     originalName: f.originalName,
     ownerName: f.ownerName,
-    ownerAvatar: f.ownerAvatar,
+    ownerEmail: f.ownerEmail, // ← 클라이언트에서 이 이메일로 최신 아바타를 요청
     createdAt:
       f.createdAt instanceof Date ? f.createdAt.toISOString() : f.createdAt,
     isEncrypted: f.isEncrypted,

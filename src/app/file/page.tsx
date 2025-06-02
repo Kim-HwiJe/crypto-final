@@ -12,7 +12,7 @@ type FileItem = {
   filename: string
   originalName: string
   ownerName: string
-  ownerAvatar: string // ← 추가
+  ownerEmail: string
   createdAt: string
   isEncrypted: boolean
   isLocked: boolean
@@ -34,10 +34,10 @@ const ICON_MAP: Record<string, string> = {
 }
 
 export default function FileListPage() {
-  // 1) 파일 목록 조회
+  // 1) "/api/file"에서 ownerEmail 포함된 배열 가져오기
   const { data: files, error } = useSWR<FileItem[]>('/api/file', fetcher)
 
-  // 2) 상태 관리
+  // 2) 상태 정의
   const [selectedCat, setSelectedCat] = useState<string>('모두')
   const [sortKey, setSortKey] = useState<'latest' | 'popular' | 'alphabet'>(
     'latest'
@@ -52,7 +52,7 @@ export default function FileListPage() {
     return ['모두', ...unique]
   }, [files])
 
-  // 3-2) 카테고리 필터링
+  // 3-2) 선택한 카테고리로 필터
   const filtered = useMemo(() => {
     if (!files) return []
     if (selectedCat === '모두') return files
@@ -80,18 +80,18 @@ export default function FileListPage() {
     })
   }, [filtered, sortKey])
 
-  // 3-4) 총 페이지 수
+  // 3-4) 총 페이지
   const totalPages = useMemo(() => {
     return Math.ceil(sorted.length / itemsPerPage)
   }, [sorted])
 
-  // 3-5) 현재 페이지 항목
+  // 3-5) 현재 페이지 보여줄 항목
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage
     return sorted.slice(start, start + itemsPerPage)
   }, [sorted, currentPage])
 
-  // 3-6) 페이지 바뀔 때마다 스크롤 위로
+  // 3-6) 페이지 바뀔 때마다 스크롤 맨 위로
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [currentPage, selectedCat, sortKey])
@@ -206,6 +206,29 @@ interface FileCardProps {
 }
 
 const FileCard: React.FC<FileCardProps> = ({ file }) => {
+  // **각 카드마다 ownerEmail을 기반으로 아바타 최신값을 fetch**
+  const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
+
+  useEffect(() => {
+    // ownerEmail이 없으면 fetch 시도 안 함
+    if (!file.ownerEmail) return
+
+    fetch(`/api/user/avatar?email=${encodeURIComponent(file.ownerEmail)}`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`status ${res.status}`)
+        }
+        return res.json()
+      })
+      .then((data: { avatarUrl?: string }) => {
+        // 만약 DB에 avatarUrl이 없으면 기본 이미지
+        setAvatarUrl(data.avatarUrl || '/default-avatar.png')
+      })
+      .catch(() => {
+        setAvatarUrl('/default-avatar.png')
+      })
+  }, [file.ownerEmail])
+
   const icon = ICON_MAP[file.category] || ICON_MAP['기타']
 
   return (
@@ -232,9 +255,8 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
 
         {/* 업로더 */}
         <div className="flex items-center gap-2">
-          {/* 이제 file.ownerAvatar 에서 바로 가져옴 */}
           <Image
-            src={file.ownerAvatar}
+            src={avatarUrl}
             alt={`${file.ownerName} 아바타`}
             width={24}
             height={24}
