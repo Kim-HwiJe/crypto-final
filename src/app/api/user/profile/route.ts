@@ -65,26 +65,44 @@ export async function POST(request: Request) {
   })
 }
 export async function GET(request: Request) {
-  // 1) 세션 확인
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.email) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-  }
-  const userEmail = session.user.email
+  const url = new URL(request.url)
 
-  // 2) 사용자 프로필 정보 가져오기
+  // 1) 쿼리 파라미터에 email=값이 있으면, 해당 이메일 사용자 프로필을 조회
+  const queryEmail = url.searchParams.get('email')
+  let targetEmail: string | null = null
+
+  if (queryEmail) {
+    // 쿼리스트링으로 넘어온 email이 우선
+    targetEmail = queryEmail
+  } else {
+    // 없으면 세션 기반으로 내 이메일을 가져옴(원래 로직)
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+    }
+    targetEmail = session.user.email
+  }
+
+  // 2) MongoDB에서 targetEmail로 사용자 정보 조회
   const client = await clientPromise
-  const users = client.db('your-db-name').collection('users')
-  const user = await users.findOne({ email: userEmail })
+  const db = client.db('your-db-name')
+  const users = db.collection('users')
 
+  const user = await users.findOne(
+    { email: targetEmail },
+    { projection: { password: 0 } }
+  )
   if (!user) {
-    return NextResponse.json({ message: 'User not found' }, { status: 404 })
+    return NextResponse.json(
+      { message: '사용자를 찾을 수 없습니다.' },
+      { status: 404 }
+    )
   }
 
-  // 3) 사용자 프로필 반환
+  // 3) 프로필 정보 반환: name, avatarUrl, description
   return NextResponse.json({
     name: user.name,
-    avatarUrl: user.avatarUrl,
-    description: user.description, // 설명 추가
+    avatarUrl: user.avatarUrl || '/default-avatar.png',
+    description: user.description || '',
   })
 }
