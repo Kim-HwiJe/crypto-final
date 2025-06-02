@@ -3,8 +3,6 @@
 import React, { useState, useEffect, FormEvent } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff } from 'lucide-react'
-import bcrypt from 'bcryptjs' // bcryptjs 라이브러리 사용
 
 const categories = [
   '음악',
