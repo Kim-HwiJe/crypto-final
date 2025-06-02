@@ -21,7 +21,7 @@ const algorithms = ['AES-256-CBC', 'AES-256-GCM', 'ChaCha20-Poly1305'] as const
 export default function UploadPage() {
   const router = useRouter()
 
-  // 기본 정보
+  // --- 상태 관리 ---
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -29,33 +29,29 @@ export default function UploadPage() {
     categories[0]
   )
 
-  // 공개 vs 암호화
   const [mode, setMode] = useState<'public' | 'encrypted'>('public')
-
-  // 복호화 비밀번호
   const [decryptPassword, setDecryptPassword] = useState('')
   const [showDecryptPassword, setShowDecryptPassword] = useState(false)
-
-  // 암호화 알고리즘
   const [algorithm, setAlgorithm] = useState<(typeof algorithms)[number]>(
     algorithms[0]
   )
 
-  // 만료일
   const [expiresAt, setExpiresAt] = useState('')
 
-  // 로딩 & 진행률
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
 
+  const CHUNK_SIZE = 4 * 1024 * 1024 // 4MB
+
+  // 파일 선택 핸들러
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFile(e.target.files?.[0] ?? null)
   }
 
+  // 제출 핸들러
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
 
-    // 검증
     if (!file) {
       toast.error('파일을 선택해주세요.')
       return
@@ -75,57 +71,121 @@ export default function UploadPage() {
     setLoading(true)
     setProgress(0)
 
-    const formData = new FormData()
-    formData.append('title', title)
-    formData.append('description', description)
-    formData.append('file', file)
-    formData.append('category', category)
-    const isEncrypted = mode === 'encrypted'
-    formData.append('isEncrypted', String(isEncrypted))
-    formData.append('isLocked', String(isEncrypted))
-    if (isEncrypted) {
+    // 1) 파일 크기가 4MB 이하 → 기존 단일 업로드 로직 (XHR)
+    if (file.size <= CHUNK_SIZE) {
+      const formData = new FormData()
+      formData.append('title', title)
+      formData.append('description', description)
+      formData.append('file', file)
+      formData.append('category', category)
+      const isEncrypted = mode === 'encrypted'
+      formData.append('isEncrypted', String(isEncrypted))
       formData.append('lockPassword', decryptPassword)
       formData.append('algorithm', algorithm)
-    }
-    if (expiresAt) {
-      formData.append('expiresAt', expiresAt)
+      if (expiresAt) formData.append('expiresAt', expiresAt)
+
+      // XHR 객체 생성
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/file/upload', true)
+
+      // 진행률 추적
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100)
+          setProgress(percent)
+        }
+      }
+
+      // 완료 처리
+      xhr.onload = () => {
+        setLoading(false)
+        if (xhr.status === 200) {
+          const data = JSON.parse(xhr.responseText)
+          toast.success('업로드 완료!')
+          router.push(`/file/${data.id}`)
+        } else {
+          let msg = '업로드에 실패했습니다.'
+          try {
+            const err = JSON.parse(xhr.responseText)
+            if (err.message) msg = err.message
+          } catch {}
+          toast.error(msg)
+        }
+      }
+
+      xhr.onerror = () => {
+        setLoading(false)
+        toast.error('네트워크 오류로 업로드에 실패했습니다.')
+      }
+
+      // 전송
+      xhr.send(formData)
+      return
     }
 
-    // XMLHttpRequest 로 진행률 추적
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/file/upload', true)
+    // 2) 파일 크기 > 4MB → 청크 업로드 모드
+    try {
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
+      let uploadedFileId: string | null = null
 
-    // 업로드 진행률
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100)
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE
+        const end = Math.min(start + CHUNK_SIZE, file.size)
+        const chunkBlob = file.slice(start, end)
+
+        const chunkFormData = new FormData()
+        // 청크 전송용 필드
+        chunkFormData.append('chunk', chunkBlob)
+        chunkFormData.append('filename', file.name)
+        chunkFormData.append('chunkIndex', String(chunkIndex))
+        chunkFormData.append('totalChunks', String(totalChunks))
+
+        // 기존 메타데이터도 함께 전송 (매번 보내도 무방)
+        chunkFormData.append('title', title)
+        chunkFormData.append('description', description)
+        chunkFormData.append('category', category)
+        const isEncrypted = mode === 'encrypted'
+        chunkFormData.append('isEncrypted', String(isEncrypted))
+        chunkFormData.append('lockPassword', decryptPassword)
+        chunkFormData.append('algorithm', algorithm)
+        if (expiresAt) chunkFormData.append('expiresAt', expiresAt)
+
+        // fetch로 청크 업로드
+        const response = await fetch('/api/file/upload', {
+          method: 'POST',
+          body: chunkFormData,
+        })
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}))
+          const message =
+            errorBody.message || '청크 업로드 도중 오류가 발생했습니다.'
+          throw new Error(message)
+        }
+
+        const json = await response.json()
+        // 마지막 청크에서만 id가 리턴된다
+        if (json.id) {
+          uploadedFileId = json.id
+        }
+
+        // 전송 진행률 업데이트 (0~100)
+        const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100)
         setProgress(percent)
       }
-    }
 
-    // 완료 처리
-    xhr.onload = () => {
       setLoading(false)
-      if (xhr.status === 200) {
-        const data = JSON.parse(xhr.responseText)
+      if (uploadedFileId) {
         toast.success('업로드 완료!')
-        router.push(`/file/${data.id}`)
+        router.push(`/file/${uploadedFileId}`)
       } else {
-        let msg = '업로드에 실패했습니다.'
-        try {
-          const err = JSON.parse(xhr.responseText)
-          if (err.message) msg = err.message
-        } catch {}
-        toast.error(msg)
+        // 예외적으로 id가 안 넘어온 경우
+        toast.error('업로드는 완료되었으나, 파일 ID를 받을 수 없었습니다.')
       }
-    }
-
-    xhr.onerror = () => {
+    } catch (err: any) {
       setLoading(false)
-      toast.error('네트워크 오류로 업로드에 실패했습니다.')
+      toast.error(err.message || '청크 업로드에 실패했습니다.')
     }
-
-    xhr.send(formData)
   }
 
   return (
@@ -282,7 +342,7 @@ export default function UploadPage() {
           />
         </div>
 
-        {/* 진행바 */}
+        {/* 진행 바 */}
         {loading && (
           <div className="w-full bg-gray-200 rounded h-2 overflow-hidden">
             <div
