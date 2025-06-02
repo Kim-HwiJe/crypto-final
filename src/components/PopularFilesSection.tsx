@@ -5,9 +5,13 @@ import Image from 'next/image'
 import Link from 'next/link'
 import React, { useState, useMemo, useEffect } from 'react'
 
+/**
+ * FileCard 타입 정의
+ * - ownerEmail: 파일을 업로드한 사용자의 이메일 (아바타 조회용)
+ */
 interface FileCard {
   id: string
-  ownerId: string // 유저 이메일을 여기 ownerId에 넣어둡니다.
+  ownerEmail: string
   ownerName: string
   title: string
   subtitle: string
@@ -33,7 +37,7 @@ const ICON_MAP: Record<string, string> = {
 const PopularFilesSection: React.FC<Props> = ({ files, categories }) => {
   const [selectedCat, setSelectedCat] = useState<string>('전체')
 
-  // 전체일 때 조회수 상위 3개, 그 외엔 해당 카테고리 전체
+  // “전체” 선택 시에는 조회수 상위 3개만, 그 외는 해당 카테고리 전체
   const filtered = useMemo(() => {
     if (selectedCat === '전체') {
       return [...files].sort((a, b) => b.views - a.views).slice(0, 3)
@@ -92,35 +96,35 @@ interface FileCardItemProps {
   file: FileCard
 }
 
-const FileCardItem: React.FC<{ file: FileCard }> = ({ file }) => {
+const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
+  // 기본 아바타 URL
   const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
 
   useEffect(() => {
     const fetchAvatar = async () => {
       try {
+        // user/avatar API는 your-db-name DB에서 유저의 avatarUrl만 가져옴
         const res = await fetch(
-          `/api/user/avatar?email=${encodeURIComponent(file.ownerId)}`
+          `/api/user/avatar?email=${encodeURIComponent(file.ownerEmail)}`
         )
         if (!res.ok) {
-          // 예: 404나 400이 리턴된 경우
           throw new Error(`status ${res.status}`)
         }
         const data = (await res.json()) as { avatarUrl?: string }
         setAvatarUrl(data.avatarUrl || '/default-avatar.png')
       } catch (err) {
         console.error('아바타 로딩 오류:', err)
-        // 오류 시에도 기본 이미지를 유지
         setAvatarUrl('/default-avatar.png')
       }
     }
     fetchAvatar()
-  }, [file.ownerId])
+  }, [file.ownerEmail])
 
   const icon = ICON_MAP[file.category] || ICON_MAP['기타']
 
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden">
-      {/* 파일 아이콘 */}
+      {/* 파일 카테고리 아이콘 */}
       <div className="h-40 bg-gray-200 flex items-center justify-center">
         <Image
           src={icon}
@@ -131,7 +135,7 @@ const FileCardItem: React.FC<{ file: FileCard }> = ({ file }) => {
         />
       </div>
       <div className="p-4 space-y-3">
-        {/* 업로더 정보 (최신 아바타) */}
+        {/* 업로더 정보: your-db-name DB에서 가져온 최신 아바타 */}
         <div className="flex items-center gap-3">
           <Image
             src={avatarUrl}
@@ -146,10 +150,10 @@ const FileCardItem: React.FC<{ file: FileCard }> = ({ file }) => {
           </div>
         </div>
 
-        {/* 간단 설명 */}
+        {/* 파일 설명(원본 파일 이름) */}
         <p className="text-sm text-gray-600">{file.subtitle}</p>
 
-        {/* 메타: 조회수 & 상세보기 */}
+        {/* 메타: 조회수 & 상세 보기 버튼 */}
         <div className="flex items-center justify-between text-sm text-gray-600">
           <span>👁 {file.views} 조회수</span>
           <Link href={`/file/${file.id}`}>
