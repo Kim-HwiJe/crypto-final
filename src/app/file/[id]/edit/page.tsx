@@ -14,8 +14,6 @@ const categories = [
   '기타',
 ] as const
 
-const algorithms = ['AES-256-CBC', 'AES-256-GCM', 'ChaCha20-Poly1305'] as const
-
 export default function EditFilePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
