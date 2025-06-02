@@ -7,7 +7,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 
 interface FileCard {
   id: string
-  ownerId: string // 이메일로 사용
+  ownerId: string // 유저 이메일을 여기 ownerId에 넣어둡니다.
   ownerName: string
   title: string
   subtitle: string
@@ -33,6 +33,7 @@ const ICON_MAP: Record<string, string> = {
 const PopularFilesSection: React.FC<Props> = ({ files, categories }) => {
   const [selectedCat, setSelectedCat] = useState<string>('전체')
 
+  // 전체일 때 조회수 상위 3개, 그 외엔 해당 카테고리 전체
   const filtered = useMemo(() => {
     if (selectedCat === '전체') {
       return [...files].sort((a, b) => b.views - a.views).slice(0, 3)
@@ -92,22 +93,21 @@ interface FileCardItemProps {
 }
 
 const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
-  // 1) 초기값을 default-avatar로 설정
+  // 초기값은 기본 아바타로 설정
   const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
 
   useEffect(() => {
-    // 2) profile/route.ts 에서 해당 이메일의 정보를 가져오도록 변경
     const fetchAvatar = async () => {
       try {
-        // 예: GET /api/profile?email=<ownerId>
+        // 새로 만든 API 호출 (이메일을 쿼리로 넘김)
         const res = await fetch(
-          `/api/profile?email=${encodeURIComponent(file.ownerId)}`
+          `/api/user/avatar?email=${encodeURIComponent(file.ownerId)}`
         )
         if (!res.ok) {
-          throw new Error('프로필 정보를 가져오는 데 실패했습니다.')
+          throw new Error('아바타를 가져오는 데 실패했습니다.')
         }
         const data = (await res.json()) as { avatarUrl?: string }
-        setAvatarUrl(data.avatarUrl || '/default-avatar.png')
+        setAvatarUrl(data.avatarUrl ?? '/default-avatar.png')
       } catch (err) {
         console.error('아바타 로딩 오류:', err)
       }
@@ -130,7 +130,7 @@ const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
         />
       </div>
       <div className="p-4 space-y-3">
-        {/* 업로더 정보 */}
+        {/* 업로더 정보 (최신 아바타) */}
         <div className="flex items-center gap-3">
           <Image
             src={avatarUrl}
