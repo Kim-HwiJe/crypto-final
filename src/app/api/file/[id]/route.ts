@@ -125,17 +125,6 @@ export async function PATCH(
     updateFields.expiresAt = expiresAt ? new Date(expiresAt) : null
   }
 
-  if (isEncrypted !== undefined) {
-    updateFields.isEncrypted = isEncrypted
-    updateFields.algorithm = isEncrypted ? algorithm : null
-
-    if (isEncrypted && lockPassword) {
-      updateFields.lockPassword = await bcryptHash(lockPassword, 10)
-    } else {
-      updateFields.lockPassword = null
-    }
-  }
-
   await filesColl.updateOne({ _id: new ObjectId(id) }, { $set: updateFields })
 
   return NextResponse.json({ message: '메타데이터가 수정되었습니다.' })

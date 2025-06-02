@@ -92,24 +92,25 @@ interface FileCardItemProps {
   file: FileCard
 }
 
-const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
-  // 초기값은 기본 아바타로 설정
+const FileCardItem: React.FC<{ file: FileCard }> = ({ file }) => {
   const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
 
   useEffect(() => {
     const fetchAvatar = async () => {
       try {
-        // 새로 만든 API 호출 (이메일을 쿼리로 넘김)
         const res = await fetch(
           `/api/user/avatar?email=${encodeURIComponent(file.ownerId)}`
         )
         if (!res.ok) {
-          throw new Error('아바타를 가져오는 데 실패했습니다.')
+          // 예: 404나 400이 리턴된 경우
+          throw new Error(`status ${res.status}`)
         }
         const data = (await res.json()) as { avatarUrl?: string }
-        setAvatarUrl(data.avatarUrl ?? '/default-avatar.png')
+        setAvatarUrl(data.avatarUrl || '/default-avatar.png')
       } catch (err) {
         console.error('아바타 로딩 오류:', err)
+        // 오류 시에도 기본 이미지를 유지
+        setAvatarUrl('/default-avatar.png')
       }
     }
     fetchAvatar()
