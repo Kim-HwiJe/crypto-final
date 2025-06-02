@@ -1,3 +1,4 @@
+// src/app/settings/page.tsx
 'use client'
 
 import { useState, ChangeEvent, FormEvent, useEffect } from 'react'
@@ -6,7 +7,7 @@ import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { mutate } from 'swr'
-import { EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function SettingsPage() {
   const { data: session } = useSession()
@@ -23,7 +24,7 @@ export default function SettingsPage() {
     user?.image || '/default-avatar.png'
   )
   const [name, setName] = useState(user?.name || '')
-  const [description, setDescription] = useState('') // 간단한 설명 추가
+  const [description, setDescription] = useState('') // 간단한 설명
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
@@ -34,12 +35,11 @@ export default function SettingsPage() {
       const res = await fetch('/api/user/profile')
       const data = await res.json()
       if (res.ok) {
-        setDescription(data.description || '') // 설명 불러오기
+        setDescription(data.description || '')
       } else {
         toast.error(data.message || '프로필 로드 실패')
       }
     }
-
     loadUserProfile()
   }, [])
 
@@ -57,7 +57,7 @@ export default function SettingsPage() {
 
     const formData = new FormData()
     formData.append('name', name)
-    formData.append('description', description) // 간단한 설명 추가
+    formData.append('description', description)
     if (avatarFile) formData.append('avatar', avatarFile)
 
     const res = await fetch('/api/user/profile', {
@@ -69,7 +69,7 @@ export default function SettingsPage() {
       toast.success('프로필이 저장되었습니다!')
       mutate('/api/user/me')
       setStatusMsg('저장되었습니다!')
-      router.refresh() // 리프레시
+      router.refresh()
     } else {
       toast.error(data.message || '저장 중 오류가 발생했습니다.')
     }
@@ -79,7 +79,6 @@ export default function SettingsPage() {
     e.preventDefault()
     setStatusMsg(null)
 
-    // 비밀번호 검증
     if (!oldPassword || !newPassword) {
       setStatusMsg('비밀번호를 입력해주세요.')
       return
@@ -97,7 +96,7 @@ export default function SettingsPage() {
       setNewPassword('')
       mutate('/api/user/me')
       setStatusMsg('비밀번호가 변경되었습니다!')
-      router.refresh() // 리프레시
+      router.refresh()
     } else {
       toast.error(data.message || '비밀번호 변경에 실패했습니다.')
       setStatusMsg('비밀번호가 틀렸습니다!')
@@ -109,6 +108,9 @@ export default function SettingsPage() {
   const [deletePwd, setDeletePwd] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  // 눈 아이콘으로 비밀번호 보이기/숨기기
+  const [showDeletePwd, setShowDeletePwd] = useState(false)
 
   const handleDeleteClick = () => {
     setConfirmDelete(true)
@@ -137,7 +139,6 @@ export default function SettingsPage() {
         return
       }
       toast.success('탈퇴가 완료되었습니다.')
-      // 로그아웃 후 홈으로
       signOut({ callbackUrl: '/' })
     } catch (err) {
       console.error(err)
@@ -272,7 +273,7 @@ export default function SettingsPage() {
             </p>
             <div className="relative">
               <input
-                type="password"
+                type={showDeletePwd ? 'text' : 'password'}
                 value={deletePwd}
                 onChange={(e) => setDeletePwd(e.target.value)}
                 placeholder="현재 비밀번호"
@@ -281,10 +282,14 @@ export default function SettingsPage() {
               />
               <button
                 type="button"
+                onClick={() => setShowDeletePwd((prev) => !prev)}
                 className="absolute inset-y-0 right-2 flex items-center"
-                onClick={() => setDeletePwd('')}
               >
-                <EyeOff size={20} className="text-gray-500" />
+                {showDeletePwd ? (
+                  <EyeOff size={20} className="text-gray-500" />
+                ) : (
+                  <Eye size={20} className="text-gray-500" />
+                )}
               </button>
             </div>
             {deleteError && (

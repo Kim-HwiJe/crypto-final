@@ -1,6 +1,7 @@
+// src/app/login/page.tsx
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
@@ -10,6 +11,25 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(false)
+
+  // 툴팁 표시 여부
+  const [showTooltip, setShowTooltip] = useState<boolean>(false)
+  const tooltipTimerRef = useRef<number | null>(null)
+
+  // “비밀번호를 잊으셨나요?” 클릭 이벤트 핸들러
+  const handleForgotClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    // 이미 타이머가 돌고 있으면 취소
+    if (tooltipTimerRef.current) {
+      clearTimeout(tooltipTimerRef.current)
+    }
+    setShowTooltip(true)
+    // 3초 뒤 자동 숨김
+    tooltipTimerRef.current = window.setTimeout(() => {
+      setShowTooltip(false)
+      tooltipTimerRef.current = null
+    }, 3000)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,11 +61,20 @@ const LoginPage: React.FC = () => {
     router.push('/')
   }
 
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (tooltipTimerRef.current) {
+        clearTimeout(tooltipTimerRef.current)
+      }
+    }
+  }, [])
+
   return (
     <div className="min-h-screen flex items-start justify-center bg-gray-50 pt-20 px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md bg-white p-8 rounded-lg shadow-md space-y-6"
+        className="w-full max-w-md bg-white p-8 rounded-lg shadow-md space-y-6 relative"
       >
         <h1 className="text-2xl font-bold text-gray-900">Login</h1>
 
@@ -95,9 +124,23 @@ const LoginPage: React.FC = () => {
           >
             {isLoading ? 'Loading...' : 'Login'}
           </button>
-          <a href="#" className="text-sm text-gray-500 hover:text-gray-700">
-            비밀번호를 잊으셨나요?
-          </a>
+
+          {/* 툴팁을 띄우기 위한 상대 위치 요소 */}
+          <div className="relative">
+            <a
+              href="#"
+              onClick={handleForgotClick}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              비밀번호를 잊으셨나요?
+            </a>
+
+            {showTooltip && (
+              <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-white border border-gray-300 rounded-md px-3 py-2 shadow-lg whitespace-nowrap text-sm text-gray-800 z-10">
+                정말 안타까워요 😢
+              </div>
+            )}
+          </div>
         </div>
       </form>
     </div>
