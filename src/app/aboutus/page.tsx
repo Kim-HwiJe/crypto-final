@@ -31,7 +31,7 @@ const members: Member[] = [
     role: '암호화 페이지 제작',
     imageUrl: '/2.png',
     description: '암호화 설명 페이지 제작',
-    github: '',
+    github: 'https://github.com/Kim-HwiJe',
     studentId: '92313867',
   },
   {
@@ -39,8 +39,8 @@ const members: Member[] = [
     role: '메시지',
     imageUrl: '/3.png',
     description: '메시지 기능 제작 시도.',
-    github: '',
-    studentId: '',
+    github: 'https://github.com/younguk03',
+    studentId: '92212788',
   },
   {
     name: '오창민',
@@ -55,8 +55,8 @@ const members: Member[] = [
     role: '사이드바 제작',
     imageUrl: '/5.png',
     description: '사이드바 제작',
-    github: '',
-    studentId: '',
+    github: 'https://github.com/limgunny',
+    studentId: '91814333',
   },
 ]
 

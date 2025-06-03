@@ -1,4 +1,4 @@
-// src/app/file/[id]/page.tsx
+// 경로: src/app/file/[id]/page.tsx
 
 import { Metadata } from 'next'
 import Image from 'next/image'
@@ -21,8 +21,8 @@ type FileInfo = {
   title: string
   description?: string
   ownerName: string
-  ownerAvatar: string
   ownerEmail: string
+  ownerAvatar: string // <-- 항상 최신 프로필 아바타 URL
   createdAt: string
   isEncrypted: boolean
   algorithm?: string
@@ -33,18 +33,22 @@ type FileInfo = {
 }
 
 async function getFileInfo(id: string): Promise<FileInfo> {
-  if (!ObjectId.isValid(id)) throw new Error('잘못된 파일 ID입니다.')
+  if (!ObjectId.isValid(id)) {
+    throw new Error('잘못된 파일 ID입니다.')
+  }
 
   const client = await clientPromise
   const db = client.db()
+
+  // 1) 먼저 files 컬렉션에서 파일 메타 정보를 조회
   const doc = await db.collection('files').findOne<{
     filename: string
     originalName: string
     title: string
     description?: string
     ownerName: string
-    ownerAvatar: string
-    ownerEmail: string
+    ownerAvatar?: string // 업로드 시점에 저장됐던 avatar 필드는 무시해도 됩니다.
+    ownerEmail: string // 이메일만 가져오기
     createdAt: Date
     isEncrypted: boolean
     encryptionMeta?: { algorithm: string }
@@ -55,7 +59,26 @@ async function getFileInfo(id: string): Promise<FileInfo> {
     category: string
   }>({ _id: new ObjectId(id) })
 
-  if (!doc) throw new Error('파일을 찾을 수 없습니다.')
+  if (!doc) {
+    throw new Error('파일을 찾을 수 없습니다.')
+  }
+
+  // 2) 'your-db-name' DB의 users 컬렉션에서 해당 이메일의 최신 avatarUrl을 조회
+  const userDb = client.db('your-db-name')
+  const usersColl = userDb.collection<{
+    avatarUrl?: string
+  }>('users')
+
+  const user = await usersColl.findOne(
+    { email: doc.ownerEmail },
+    { projection: { _id: 0, avatarUrl: 1 } }
+  )
+
+  // 만약 유저 정보가 없거나 avatarUrl이 비어 있으면 기본 이미지 사용
+  const latestAvatar =
+    user?.avatarUrl && user.avatarUrl.length > 0
+      ? user.avatarUrl
+      : '/default-avatar.png'
 
   return {
     id,
@@ -64,8 +87,8 @@ async function getFileInfo(id: string): Promise<FileInfo> {
     title: doc.title || doc.originalName,
     description: doc.description,
     ownerName: doc.ownerName,
-    ownerAvatar: doc.ownerAvatar,
     ownerEmail: doc.ownerEmail,
+    ownerAvatar: latestAvatar, // <-- 여기에 항상 최신값을 넣는다
     createdAt: doc.createdAt.toISOString(),
     isEncrypted: doc.isEncrypted,
     algorithm: doc.algorithm ?? doc.encryptionMeta?.algorithm,
@@ -112,7 +135,7 @@ export default async function FileDetailPage({
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-      {/* Preview */}
+      {/* ───────── Preview ───────── */}
       <div className="relative w-full h-80 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
         {file.isPublic && !file.isEncrypted ? (
           <Image
@@ -132,8 +155,9 @@ export default async function FileDetailPage({
         )}
       </div>
 
-      {/* Details */}
+      {/* ───────── Details ───────── */}
       <div className="space-y-6">
+        {/* 업로더 정보: 최신 프로필 아바타를 ownerAvatar로 표시 */}
         <Link
           href={`/user/${encodeURIComponent(file.ownerEmail)}`}
           className="flex items-center gap-3 hover:underline"
@@ -151,6 +175,7 @@ export default async function FileDetailPage({
           </div>
         </Link>
 
+        {/* 파일 메타: 날짜, 상태 배지, 조회수 */}
         <div className="flex items-center justify-between text-xs text-gray-400 space-x-2">
           <span>
             {new Date(file.createdAt).toLocaleString('ko-KR', {
@@ -183,17 +208,20 @@ export default async function FileDetailPage({
           </div>
         </div>
 
+        {/* 제목 */}
         <h1 className="text-2xl font-bold text-gray-600">{file.title}</h1>
         <h2 className="text-2xl font-bold text-gray-400">
           {file.originalName}
         </h2>
 
+        {/* 설명 */}
         {file.description && (
           <p className="text-gray-700 whitespace-pre-wrap">
             {file.description}
           </p>
         )}
 
+        {/* 소유자와 일반 사용자 구분하여 버튼 노출 */}
         {me === file.ownerEmail ? (
           <OwnerActions fileId={file.id} />
         ) : (
