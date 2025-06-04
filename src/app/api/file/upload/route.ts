@@ -124,7 +124,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4) 암호화 (fullFileBuffer 기준)
     let buffer = fullFileBuffer
     let encryptionMeta: Record<string, string> = {}
     if (isEncrypted) {
@@ -149,7 +148,6 @@ export async function POST(request: Request) {
         )
       }
 
-      // fullFileBuffer 전체를 암호화
       const encrypted = Buffer.concat([
         cipher.update(fullFileBuffer),
         cipher.final(),
@@ -198,7 +196,6 @@ export async function POST(request: Request) {
     )
     const fileId = uploadStream.id as ObjectId
 
-    // 6) 암호문 접근용 비밀번호 해시
     let hashedLockPassword: string | undefined
     if (isEncrypted) {
       hashedLockPassword = await bcryptHash(rawLockPwd, 10)
