@@ -31,11 +31,8 @@ export async function POST(request: Request) {
   // 1) formData
   const formData = await request.formData()
 
-  // ——————————————————————
-  // “청크 업로드 모드”인지 구분
   const chunkBlob = formData.get('chunk') as Blob | null
   if (chunkBlob) {
-    // → 청크 모드: filename, chunkIndex, totalChunks 로 처리
     const filename = formData.get('filename')?.toString() || ''
     const chunkIndex = parseInt(
       formData.get('chunkIndex')?.toString() || '0',
@@ -45,7 +42,7 @@ export async function POST(request: Request) {
       formData.get('totalChunks')?.toString() || '0',
       10
     )
-    // ① plainLength 받아오기
+
     const plainLengthRaw = formData.get('plainLength')?.toString()
     const plainLength = plainLengthRaw ? parseInt(plainLengthRaw, 10) : null
 
@@ -62,30 +59,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // **Vercel 환경용 임시 폴더** → /tmp/tmp-chunks
     const tempDir = '/tmp/tmp-chunks'
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true })
     }
 
-    // 각 청크를 디스크에 저장
     const tempFilePath = path.join(tempDir, `${filename}.chunk-${chunkIndex}`)
-    // Blob → Buffer로 변환 후 저장
+
     fs.writeFileSync(tempFilePath, Buffer.from(await chunkBlob.arrayBuffer()))
 
-    // 지금까지 저장된 청크 파일 목록 추출
     const uploadedChunks = fs
       .readdirSync(tempDir)
       .filter((f) => f.startsWith(`${filename}.chunk-`))
 
-    // 아직 청크가 모두 모이지 않으면 “청크 업로드 완료”만 응답
     if (uploadedChunks.length < totalChunks) {
       return NextResponse.json({ message: '청크 업로드 완료' })
     }
 
-    // ——————————————————————
-    // *모든 청크가 모였을 때 한 번만 실행되는 구간*
-    // 2) 청크 파일들을 인덱스 순서대로 정렬
     const sortedChunks = uploadedChunks
       .map((name) => {
         const idx = parseInt(name.split('.chunk-')[1], 10)
@@ -94,7 +84,6 @@ export async function POST(request: Request) {
       .sort((a, b) => a.idx - b.idx)
       .map((obj) => obj.name)
 
-    // 3) 디스크에 있는 청크들을 합쳐서 하나의 Buffer 생성
     const fullFileBuffer = Buffer.concat(
       sortedChunks.map((chunkFileName) =>
         fs.readFileSync(path.join(tempDir, chunkFileName))
