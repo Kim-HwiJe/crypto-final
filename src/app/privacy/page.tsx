@@ -1,4 +1,3 @@
-// 파일 경로: src/app/privacy/page.tsx
 'use client'
 
 import React from 'react'

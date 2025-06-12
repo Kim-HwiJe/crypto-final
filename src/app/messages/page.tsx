@@ -1,4 +1,3 @@
-// src/app/messages/page.tsx
 import React, { Suspense } from 'react'
 import MessagesInner from './MessagesInner'
 

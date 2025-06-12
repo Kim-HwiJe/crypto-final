@@ -1,5 +1,3 @@
-// src/lib/auth.ts
-import NextAuth from 'next-auth'
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import GoogleProvider from 'next-auth/providers/google'
@@ -10,15 +8,10 @@ import jsonwebtoken from 'jsonwebtoken'
 import type { JWT } from 'next-auth/jwt'
 import type { JWTEncodeParams, JWTDecodeParams } from 'next-auth/jwt'
 
-// ① We still check for NEXTAUTH_SECRET here:
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error('❌ NEXTAUTH_SECRET is not defined in .env')
 }
 
-/**
- * Export `authOptions` from its own file.
- * That way, we can import it anywhere without putting extra exports into the route file.
- */
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -53,13 +46,12 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
-    maxAge: 2 * 60 * 60, // 2시간
+    maxAge: 2 * 60 * 60,
   },
 
   jwt: {
-    maxAge: 2 * 60 * 60, // session.maxAge 와 동일
+    maxAge: 2 * 60 * 60,
 
-    // 1) 토큰 발급: exp, iat, aud 제거 후 HS512 로 서명
     async encode({ token, secret, maxAge }: JWTEncodeParams): Promise<string> {
       if (!token) throw new Error('No token to encode')
       const t = token as any
@@ -76,7 +68,6 @@ export const authOptions: NextAuthOptions = {
       )
     },
 
-    // 2) 토큰 검증: HS512, audience 동일하게 체크
     async decode({ token, secret }: JWTDecodeParams): Promise<JWT | null> {
       if (!token) return null
       try {
@@ -93,7 +84,6 @@ export const authOptions: NextAuthOptions = {
   },
 
   callbacks: {
-    // 로그인 시 JWT 에 user 정보를 심기
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id
@@ -104,7 +94,6 @@ export const authOptions: NextAuthOptions = {
       return token
     },
 
-    // 클라이언트에 내려줄 session 에 이미지 포함
     async session({ session, token }) {
       session.user = {
         id: token.sub! as string,

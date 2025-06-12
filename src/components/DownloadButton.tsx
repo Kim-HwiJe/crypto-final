@@ -28,7 +28,6 @@ export default function DownloadButton({ fileId }: DownloadButtonProps) {
       setDownloading(false)
 
       if (xhr.status === 200) {
-        // 1) 서버가 보낸 Content-Disposition 헤더에서 filename 추출
         const disposition = xhr.getResponseHeader('Content-Disposition') || ''
         let filename = 'download'
         const match = /filename\*=UTF-8''(.+)$/.exec(disposition)
@@ -36,7 +35,6 @@ export default function DownloadButton({ fileId }: DownloadButtonProps) {
           filename = decodeURIComponent(match[1])
         }
 
-        // 2) Blob → a 태그로 다운로드
         const blob = xhr.response
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -63,7 +61,6 @@ export default function DownloadButton({ fileId }: DownloadButtonProps) {
 
   return (
     <div className="w-full space-y-2">
-      {/* 다운로드 진행 바 */}
       {downloading && (
         <div className="w-full bg-gray-200 rounded-lg overflow-hidden h-3">
           <div
@@ -73,7 +70,6 @@ export default function DownloadButton({ fileId }: DownloadButtonProps) {
         </div>
       )}
 
-      {/* 다운로드 버튼 */}
       <button
         onClick={handleDownload}
         disabled={downloading}

@@ -1,9 +1,8 @@
-// utils/getPopularFilesByCategory.ts
 import clientPromise from '@/lib/mongodb'
 
 export interface FileCard {
   id: string
-  ownerEmail: string // 업로더 이메일
+  ownerEmail: string
   ownerName: string
   title: string
   subtitle: string
@@ -17,7 +16,7 @@ export async function getPopularFilesAll(
   categories: string[]
 ): Promise<FileCard[]> {
   const client = await clientPromise
-  const db = client.db() // 기본 DB
+  const db = client.db()
 
   const allFiles: FileCard[] = []
 
@@ -32,7 +31,7 @@ export async function getPopularFilesAll(
     for (const doc of files) {
       allFiles.push({
         id: doc._id.toString(),
-        ownerEmail: doc.ownerEmail, // ← 반드시 이메일 필드를 포함해야 함
+        ownerEmail: doc.ownerEmail,
         ownerName: doc.ownerName,
         title: doc.title,
         subtitle: doc.description,

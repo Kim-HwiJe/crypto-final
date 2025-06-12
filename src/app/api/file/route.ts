@@ -1,4 +1,3 @@
-// src/app/api/file/route.ts
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 
@@ -8,7 +7,6 @@ export async function GET() {
   const client = await clientPromise
   const filesColl = client.db().collection('files')
 
-  // projection에 ownerAvatar 제거 → ownerEmail만 내려준다
   const files = await filesColl
     .find(
       {},
@@ -19,7 +17,7 @@ export async function GET() {
           filename: 1,
           originalName: 1,
           ownerName: 1,
-          ownerEmail: 1, // ← 이 필드만 내려준다
+          ownerEmail: 1,
           createdAt: 1,
           isEncrypted: 1,
           isLocked: 1,
@@ -36,7 +34,7 @@ export async function GET() {
     filename: f.filename,
     originalName: f.originalName,
     ownerName: f.ownerName,
-    ownerEmail: f.ownerEmail, // ← 클라이언트에서 이 이메일로 최신 아바타를 요청
+    ownerEmail: f.ownerEmail,
     createdAt:
       f.createdAt instanceof Date ? f.createdAt.toISOString() : f.createdAt,
     isEncrypted: f.isEncrypted,

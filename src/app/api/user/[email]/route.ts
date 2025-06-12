@@ -1,14 +1,12 @@
-// src/app/api/user/[email]/route.ts
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
-  // 1) URL에서 email 세그먼트 추출
   const url = new URL(request.url)
   const segments = url.pathname.split('/')
-  const rawEmail = segments.pop() || '' // 마지막 세그먼트
+  const rawEmail = segments.pop() || ''
   const email = decodeURIComponent(rawEmail)
 
   if (!email) {
@@ -18,7 +16,6 @@ export async function GET(request: Request) {
     )
   }
 
-  // 2) DB 조회
   const client = await clientPromise
   const users = client.db('your-db-name').collection('users')
   const user = await users.findOne<{
@@ -34,7 +31,6 @@ export async function GET(request: Request) {
     )
   }
 
-  // 3) 응답
   return NextResponse.json({
     name: user.name ?? null,
     avatarUrl: user.avatarUrl ?? null,

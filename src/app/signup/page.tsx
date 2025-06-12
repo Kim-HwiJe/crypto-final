@@ -4,7 +4,6 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-// 회원가입 API 호출 함수
 async function registerUser(data: {
   name: string
   email: string
@@ -107,7 +106,6 @@ const SignUpPage: React.FC = () => {
           />
         </div>
 
-        {/* Submit 버튼 및 링크 */}
         <div className="flex items-center justify-between pt-4">
           <button
             type="submit"
@@ -116,12 +114,6 @@ const SignUpPage: React.FC = () => {
           >
             {isLoading ? 'Signing up...' : 'Sign up'}
           </button>
-          <Link
-            href="/login"
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            Login with code
-          </Link>
         </div>
 
         <p className="text-xs text-gray-500 pt-2">

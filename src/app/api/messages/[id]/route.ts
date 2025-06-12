@@ -1,4 +1,3 @@
-// src/app/api/messages/[id]/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
@@ -7,15 +6,10 @@ import { ObjectId } from 'mongodb'
 
 export const runtime = 'nodejs'
 
-// ─────────────────────────────────────────────────────────────────────────────
-// [PATCH] /api/messages/[id]
-//   - 메시지 수정 (content만 업데이트)
-// ─────────────────────────────────────────────────────────────────────────────
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // params는 Promise<{ id: string }>이므로 await로 해제
   const { id } = await params
 
   if (!ObjectId.isValid(id)) {
@@ -25,7 +19,6 @@ export async function PATCH(
     )
   }
 
-  // 로그인 검사
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -35,7 +28,6 @@ export async function PATCH(
   }
   const me = session.user.email
 
-  // 요청 바디에서 새 내용(content)만 받음
   const { content } = await request.json()
   if (typeof content !== 'string' || !content.trim()) {
     return NextResponse.json(
@@ -48,7 +40,6 @@ export async function PATCH(
   const db = client.db()
   const messagesColl = db.collection('messages')
 
-  // 기존 메시지를 조회
   const existing = await messagesColl.findOne({ _id: new ObjectId(id) })
   if (!existing) {
     return NextResponse.json(
@@ -56,7 +47,7 @@ export async function PATCH(
       { status: 404 }
     )
   }
-  // 본인이 작성한 메시지인지 확인
+
   if (existing.from !== me) {
     return NextResponse.json(
       { message: '본인의 메시지만 수정할 수 있습니다.' },
@@ -64,7 +55,6 @@ export async function PATCH(
     )
   }
 
-  // 업데이트: content와 edited 플래그, updatedAt 필드를 추가
   await messagesColl.updateOne(
     { _id: new ObjectId(id) },
     {
@@ -79,10 +69,6 @@ export async function PATCH(
   return NextResponse.json({ message: '메시지가 수정되었습니다.' })
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// [DELETE] /api/messages/[id]
-//   - 메시지 삭제
-// ─────────────────────────────────────────────────────────────────────────────
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -96,7 +82,6 @@ export async function DELETE(
     )
   }
 
-  // 로그인 검사
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -110,7 +95,6 @@ export async function DELETE(
   const db = client.db()
   const messagesColl = db.collection('messages')
 
-  // 삭제하려는 메시지를 조회
   const existing = await messagesColl.findOne({ _id: new ObjectId(id) })
   if (!existing) {
     return NextResponse.json(
@@ -118,7 +102,7 @@ export async function DELETE(
       { status: 404 }
     )
   }
-  // 본인이 쓴 메시지인지 확인
+
   if (existing.from !== me) {
     return NextResponse.json(
       { message: '본인의 메시지만 삭제할 수 있습니다.' },
@@ -126,7 +110,6 @@ export async function DELETE(
     )
   }
 
-  // 실제 삭제
   await messagesColl.deleteOne({ _id: new ObjectId(id) })
   return NextResponse.json({ message: '메시지가 삭제되었습니다.' })
 }

@@ -22,7 +22,6 @@ export async function POST(req: Request) {
 
   const client = await clientPromise
   const db = client.db()
-  // upsert 로 중복 방지
   await db.collection('follows').updateOne(
     { follower: me, following: targetEmail },
     {

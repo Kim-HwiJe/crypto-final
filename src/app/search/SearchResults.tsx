@@ -1,28 +1,24 @@
-// src/app/search/SearchResults.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
-// 유저 정보 타입
 interface UserInfo {
   _id: string
   email: string
   name: string
-  avatarUrl?: string
 }
 
-// 파일 결과 타입
 interface FileInfo {
   id: string
   _id?: string
   title: string
   originalName: string
   ownerName: string
-  ownerAvatar: string
+  ownerEmail: string
   createdAt: string
   isEncrypted: boolean
   isLocked: boolean
@@ -49,10 +45,10 @@ export default function SearchResults() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
 
-  // 페이지네이션 상태
   const [page, setPage] = useState(1)
   const pageSize = 9
-  const totalPages = Math.ceil(results.length / pageSize)
+
+  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!query || !type) return
@@ -68,6 +64,7 @@ export default function SearchResults() {
           setResults(data.results)
           setPage(1)
         } else {
+          setResults([])
           setError(
             `"${query}"에 해당하는 ${
               type === 'user' ? '사용자' : '파일'
@@ -81,7 +78,46 @@ export default function SearchResults() {
       })
   }, [query, type])
 
-  const paginated = results.slice((page - 1) * pageSize, page * pageSize)
+  const totalPages = useMemo(() => {
+    return Math.ceil(results.length / pageSize)
+  }, [results])
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return results.slice(start, start + pageSize)
+  }, [results, page])
+
+  useEffect(() => {
+    if (!paginated.length) return
+
+    paginated.forEach((item) => {
+      let email: string | null = null
+      if (type === 'user') {
+        email = (item as UserInfo).email
+      } else if (type === 'file') {
+        email = (item as FileInfo).ownerEmail
+      }
+      if (email && !avatarMap[email]) {
+        fetch(`/api/user/avatar?email=${encodeURIComponent(email)}`)
+          .then((res) => {
+            if (!res.ok) throw new Error(`status ${res.status}`)
+            return res.json()
+          })
+          .then((data: { avatarUrl?: string }) => {
+            setAvatarMap((prev) => ({
+              ...prev,
+              [email!]: data.avatarUrl || '/default-avatar.png',
+            }))
+          })
+          .catch(() => {
+            setAvatarMap((prev) => ({
+              ...prev,
+              [email!]: '/default-avatar.png',
+            }))
+          })
+      }
+    })
+  }, [paginated, type, avatarMap])
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10 space-y-8">
@@ -97,24 +133,28 @@ export default function SearchResults() {
             사용자 검색 결과
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {paginated.map((user: UserInfo) => (
-              <Link
-                key={user.email}
-                href={`/user/${encodeURIComponent(user.email)}`}
-                className="flex flex-col items-center bg-white p-3 rounded shadow hover:shadow-lg transition"
-              >
-                <Image
-                  src={user.avatarUrl || '/default-avatar.png'}
-                  alt={`${user.name} 아바타`}
-                  width={48}
-                  height={48}
-                  className="rounded-full"
-                />
-                <span className="mt-2 text-sm font-medium text-gray-800">
-                  {user.name}
-                </span>
-              </Link>
-            ))}
+            {paginated.map((user: UserInfo) => {
+              const avatarUrl = avatarMap[user.email] || '/default-avatar.png'
+              return (
+                <Link
+                  key={user.email}
+                  href={`/user/${encodeURIComponent(user.email)}`}
+                  className="flex flex-col items-center bg-white p-3 rounded shadow hover:shadow-lg transition"
+                >
+                  <Image
+                    src={avatarUrl}
+                    alt={`${user.name} 아바타`}
+                    width={48}
+                    height={48}
+                    className="rounded-full"
+                    style={{ width: '48px', height: '48px' }}
+                  />
+                  <span className="mt-2 text-sm font-medium text-gray-800">
+                    {user.name}
+                  </span>
+                </Link>
+              )
+            })}
           </div>
         </section>
       )}
@@ -129,6 +169,9 @@ export default function SearchResults() {
             {paginated.map((file: FileInfo) => {
               const fileId = file.id ?? file._id!
               const icon = ICON_MAP[file.category] || ICON_MAP['기타']
+              const avatarUrl =
+                avatarMap[file.ownerEmail] || '/default-avatar.png'
+
               return (
                 <Link
                   key={fileId}
@@ -142,6 +185,7 @@ export default function SearchResults() {
                       width={40}
                       height={40}
                       className="object-contain"
+                      style={{ width: '40px', height: '40px' }}
                     />
                   </div>
                   <div className="p-3 space-y-1 text-sm">
@@ -151,11 +195,12 @@ export default function SearchResults() {
                     <p className="text-gray-500">{file.originalName}</p>
                     <div className="flex items-center gap-2">
                       <Image
-                        src={file.ownerAvatar}
+                        src={avatarUrl}
                         alt={`${file.ownerName} 아바타`}
                         width={20}
                         height={20}
                         className="rounded-full"
+                        style={{ width: '20px', height: '20px' }}
                       />
                       <span className="text-gray-700">{file.ownerName}</span>
                       {file.isEncrypted && (

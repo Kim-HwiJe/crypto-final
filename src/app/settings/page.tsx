@@ -1,4 +1,3 @@
-// src/app/settings/page.tsx
 'use client'
 
 import { useState, ChangeEvent, FormEvent, useEffect } from 'react'
@@ -18,18 +17,16 @@ export default function SettingsPage() {
   const user = session?.user as UserWithDescription
   const router = useRouter()
 
-  // ─── 프로필 업데이트 상태 ─────────────────────────
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState(
     user?.image || '/default-avatar.png'
   )
   const [name, setName] = useState(user?.name || '')
-  const [description, setDescription] = useState('') // 간단한 설명
+  const [description, setDescription] = useState('')
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
 
-  // 설명 값이 있을 경우 불러오기
   useEffect(() => {
     async function loadUserProfile() {
       const res = await fetch('/api/user/profile')
@@ -75,8 +72,6 @@ export default function SettingsPage() {
     }
   }
 
-  // ─── 비밀번호 변경 부분 ───────────────────────────
-  // 가림/보기 토글 상태
   const [showOldPwd, setShowOldPwd] = useState(false)
   const [showNewPwd, setShowNewPwd] = useState(false)
 
@@ -108,7 +103,6 @@ export default function SettingsPage() {
     }
   }
 
-  // ─── 탈퇴하기 로직 ────────────────────────────────
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deletePwd, setDeletePwd] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -150,7 +144,6 @@ export default function SettingsPage() {
       setDeleteLoading(false)
     }
   }
-  // ────────────────────────────────────────────────
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-8">
@@ -282,7 +275,6 @@ export default function SettingsPage() {
         <p className="text-center text-sm text-red-500">{statusMsg}</p>
       )}
 
-      {/* ─── 탈퇴하기 섹션 ──────────────────────── */}
       <section className="bg-white p-6 rounded-lg shadow space-y-4">
         <h2 className="text-xl font-semibold text-red-600">계정 탈퇴</h2>
 

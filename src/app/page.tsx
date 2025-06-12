@@ -48,7 +48,6 @@ const HomePage = async () => {
 
       <PopularFilesSection files={files} categories={categories} />
 
-      {/* Explore Button */}
       <div className="text-center">
         <Link href="/file">
           <button className="bg-purple-100 hover:bg-purple-200 text-purple-600 px-6 py-2 rounded-md font-medium transition">

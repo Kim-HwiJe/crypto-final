@@ -16,7 +16,6 @@ export default function FollowButton({ targetEmail }: FollowButtonProps) {
   const [isFollowing, setIsFollowing] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // 마운트 시 팔로우 상태 조회
   useEffect(() => {
     if (!me) return
     fetch('/api/user/me')

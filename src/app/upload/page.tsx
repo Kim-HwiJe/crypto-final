@@ -1,4 +1,3 @@
-// src/app/upload/page.tsx
 'use client'
 
 import React, { useState, ChangeEvent, FormEvent } from 'react'
@@ -21,7 +20,6 @@ const algorithms = ['AES-256-CBC', 'AES-256-GCM', 'ChaCha20-Poly1305'] as const
 export default function UploadPage() {
   const router = useRouter()
 
-  // --- 상태 관리 ---
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -43,12 +41,10 @@ export default function UploadPage() {
 
   const CHUNK_SIZE = 4 * 1024 * 1024 // 4MB
 
-  // 파일 선택 핸들러
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFile(e.target.files?.[0] ?? null)
   }
 
-  // 제출 핸들러
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
 
@@ -83,14 +79,11 @@ export default function UploadPage() {
       formData.append('lockPassword', decryptPassword)
       formData.append('algorithm', algorithm)
       if (expiresAt) formData.append('expiresAt', expiresAt)
-      // plainLength 추가 (원본 파일 크기)
       formData.append('plainLength', String(file.size))
 
-      // XHR 객체 생성
       const xhr = new XMLHttpRequest()
       xhr.open('POST', '/api/file/upload', true)
 
-      // 진행률 추적
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
           const percent = Math.round((event.loaded / event.total) * 100)
@@ -98,7 +91,6 @@ export default function UploadPage() {
         }
       }
 
-      // 완료 처리
       xhr.onload = () => {
         setLoading(false)
         if (xhr.status === 200) {
@@ -136,16 +128,14 @@ export default function UploadPage() {
         const chunkBlob = file.slice(start, end)
 
         const chunkFormData = new FormData()
-        // 청크 전송용 필드
+
         chunkFormData.append('chunk', chunkBlob)
         chunkFormData.append('filename', file.name)
         chunkFormData.append('chunkIndex', String(chunkIndex))
         chunkFormData.append('totalChunks', String(totalChunks))
 
-        // plainLength 추가 (원본 파일 크기)
         chunkFormData.append('plainLength', String(file.size))
 
-        // 기존 메타데이터도 함께 전송 (매번 보내도 무방)
         chunkFormData.append('title', title)
         chunkFormData.append('description', description)
         chunkFormData.append('category', category)
@@ -155,7 +145,6 @@ export default function UploadPage() {
         chunkFormData.append('algorithm', algorithm)
         if (expiresAt) chunkFormData.append('expiresAt', expiresAt)
 
-        // fetch로 청크 업로드
         const response = await fetch('/api/file/upload', {
           method: 'POST',
           body: chunkFormData,
@@ -169,12 +158,11 @@ export default function UploadPage() {
         }
 
         const json = await response.json()
-        // 마지막 청크에서만 id가 리턴된다
+
         if (json.id) {
           uploadedFileId = json.id
         }
 
-        // 전송 진행률 업데이트 (0~100)
         const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100)
         setProgress(percent)
       }
@@ -184,7 +172,6 @@ export default function UploadPage() {
         toast.success('업로드 완료!')
         router.push(`/file/${uploadedFileId}`)
       } else {
-        // 예외적으로 id가 안 넘어온 경우
         toast.error('업로드는 완료되었으나, 파일 ID를 받을 수 없었습니다.')
       }
     } catch (err: any) {
@@ -258,7 +245,6 @@ export default function UploadPage() {
           </select>
         </div>
 
-        {/* 공개 vs 암호화 모드 */}
         <div className="space-y-1">
           <p className="font-medium text-gray-700">공개 설정</p>
           <div className="flex items-center space-x-6 text-gray-700">
@@ -347,7 +333,6 @@ export default function UploadPage() {
           />
         </div>
 
-        {/* 진행 바 */}
         {loading && (
           <div className="w-full bg-gray-200 rounded h-2 overflow-hidden">
             <div
@@ -357,7 +342,6 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* 제출 버튼 */}
         <button
           type="submit"
           disabled={loading}
