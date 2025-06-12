@@ -1,4 +1,3 @@
-// src/app/upload/page.tsx
 'use client'
 
 import React, { useState, ChangeEvent, FormEvent } from 'react'
@@ -21,7 +20,6 @@ const algorithms = ['AES-256-CBC', 'AES-256-GCM', 'ChaCha20-Poly1305'] as const
 export default function UploadPage() {
   const router = useRouter()
 
-  // --- 상태 관리 ---
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -43,12 +41,10 @@ export default function UploadPage() {
 
   const CHUNK_SIZE = 4 * 1024 * 1024 // 4MB
 
-  // 파일 선택 핸들러
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFile(e.target.files?.[0] ?? null)
   }
 
-  // 제출 핸들러
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
 
@@ -249,7 +245,6 @@ export default function UploadPage() {
           </select>
         </div>
 
-        {/* 공개 vs 암호화 모드 */}
         <div className="space-y-1">
           <p className="font-medium text-gray-700">공개 설정</p>
           <div className="flex items-center space-x-6 text-gray-700">
@@ -338,7 +333,6 @@ export default function UploadPage() {
           />
         </div>
 
-        {/* 진행 바 */}
         {loading && (
           <div className="w-full bg-gray-200 rounded h-2 overflow-hidden">
             <div
@@ -348,7 +342,6 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* 제출 버튼 */}
         <button
           type="submit"
           disabled={loading}

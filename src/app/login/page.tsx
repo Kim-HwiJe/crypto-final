@@ -1,4 +1,3 @@
-// src/app/login/page.tsx
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
@@ -12,19 +11,15 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
-  // 툴팁 표시 여부
   const [showTooltip, setShowTooltip] = useState<boolean>(false)
   const tooltipTimerRef = useRef<number | null>(null)
 
-  // “비밀번호를 잊으셨나요?” 클릭 이벤트 핸들러
   const handleForgotClick = (e: React.MouseEvent) => {
     e.preventDefault()
-    // 이미 타이머가 돌고 있으면 취소
     if (tooltipTimerRef.current) {
       clearTimeout(tooltipTimerRef.current)
     }
     setShowTooltip(true)
-    // 3초 뒤 자동 숨김
     tooltipTimerRef.current = window.setTimeout(() => {
       setShowTooltip(false)
       tooltipTimerRef.current = null
@@ -36,7 +31,6 @@ const LoginPage: React.FC = () => {
     setError(null)
     setIsLoading(true)
 
-    // next-auth CredentialsProvider 호출
     const res = await signIn('credentials', {
       redirect: false,
       email,
@@ -46,7 +40,6 @@ const LoginPage: React.FC = () => {
     setIsLoading(false)
 
     if (res?.error) {
-      // 에러 메시지에 따라 분기 처리
       if (res.error === 'USER_NOT_FOUND') {
         setError('없는 사용자입니다.')
       } else if (res.error === 'PASSWORD_INCORRECT') {
@@ -56,12 +49,9 @@ const LoginPage: React.FC = () => {
       }
       return
     }
-
-    // 로그인 성공 시 홈으로 이동
     router.push('/')
   }
 
-  // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
     return () => {
       if (tooltipTimerRef.current) {
@@ -125,7 +115,6 @@ const LoginPage: React.FC = () => {
             {isLoading ? 'Loading...' : 'Login'}
           </button>
 
-          {/* 툴팁을 띄우기 위한 상대 위치 요소 */}
           <div className="relative">
             <a
               href="#"

@@ -1,4 +1,3 @@
-// src/app/files/page.tsx
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
@@ -22,7 +21,6 @@ type FileItem = {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-// 카테고리 → 아이콘 매핑
 const ICON_MAP: Record<string, string> = {
   음악: '/icons/audio.png',
   이미지: '/icons/image.png',
@@ -34,10 +32,8 @@ const ICON_MAP: Record<string, string> = {
 }
 
 export default function FileListPage() {
-  // 1) "/api/file"에서 ownerEmail 포함된 배열 가져오기
   const { data: files, error } = useSWR<FileItem[]>('/api/file', fetcher)
 
-  // 2) 상태 정의
   const [selectedCat, setSelectedCat] = useState<string>('모두')
   const [sortKey, setSortKey] = useState<'latest' | 'popular' | 'alphabet'>(
     'latest'
@@ -45,21 +41,18 @@ export default function FileListPage() {
   const [currentPage, setCurrentPage] = useState<number>(1)
   const itemsPerPage = 9
 
-  // 3-1) 카테고리 목록
   const cats = useMemo(() => {
     if (!files) return ['모두']
     const unique = Array.from(new Set(files.map((f) => f.category))).sort()
     return ['모두', ...unique]
   }, [files])
 
-  // 3-2) 선택한 카테고리로 필터
   const filtered = useMemo(() => {
     if (!files) return []
     if (selectedCat === '모두') return files
     return files.filter((f) => f.category === selectedCat)
   }, [files, selectedCat])
 
-  // 3-3) 정렬
   const sorted = useMemo(() => {
     if (!filtered) return []
     const arr = [...filtered]
@@ -72,7 +65,6 @@ export default function FileListPage() {
     if (sortKey === 'popular') {
       return arr.sort((a, b) => b.views - a.views)
     }
-    // alphabet: 제목 오름차순
     return arr.sort((a, b) => {
       const ta = a.title || a.originalName
       const tb = b.title || b.originalName
@@ -80,23 +72,19 @@ export default function FileListPage() {
     })
   }, [filtered, sortKey])
 
-  // 3-4) 총 페이지
   const totalPages = useMemo(() => {
     return Math.ceil(sorted.length / itemsPerPage)
   }, [sorted])
 
-  // 3-5) 현재 페이지 보여줄 항목
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage
     return sorted.slice(start, start + itemsPerPage)
   }, [sorted, currentPage])
 
-  // 3-6) 페이지 바뀔 때마다 스크롤 맨 위로
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [currentPage, selectedCat, sortKey])
 
-  // 4) 에러/로딩 처리
   if (error) {
     return <p className="p-6 text-red-500">에러가 발생했습니다.</p>
   }
@@ -206,11 +194,9 @@ interface FileCardProps {
 }
 
 const FileCard: React.FC<FileCardProps> = ({ file }) => {
-  // **각 카드마다 ownerEmail을 기반으로 아바타 최신값을 fetch**
   const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
 
   useEffect(() => {
-    // ownerEmail이 없으면 fetch 시도 안 함
     if (!file.ownerEmail) return
 
     fetch(`/api/user/avatar?email=${encodeURIComponent(file.ownerEmail)}`)
@@ -221,7 +207,6 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
         return res.json()
       })
       .then((data: { avatarUrl?: string }) => {
-        // 만약 DB에 avatarUrl이 없으면 기본 이미지
         setAvatarUrl(data.avatarUrl || '/default-avatar.png')
       })
       .catch(() => {

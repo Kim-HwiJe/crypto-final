@@ -1,5 +1,3 @@
-// src/app/user/me/page.tsx
-
 import { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -8,7 +6,6 @@ import { authOptions } from '@/lib/auth'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 
-// — 카테고리 → 아이콘 매핑
 const ICON_MAP: Record<string, string> = {
   음악: '/icons/audio.png',
   이미지: '/icons/image.png',
@@ -19,7 +16,6 @@ const ICON_MAP: Record<string, string> = {
   기타: '/icons/etc.png',
 }
 
-// — 파일 목록 항목 타입
 type FileItem = {
   id: string
   title: string
@@ -31,13 +27,12 @@ type FileItem = {
   isLocked: boolean
 }
 
-// — 사용자 정보 타입
 type UserInfo = {
   _id: ObjectId
   name: string
   email: string
   avatarUrl: string
-  description: string | null // 설명 추가
+  description: string | null
 }
 
 export const metadata: Metadata = {
@@ -45,7 +40,6 @@ export const metadata: Metadata = {
 }
 
 export default async function MyPage() {
-  // 1) 로그인 확인
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return (
@@ -56,10 +50,8 @@ export default async function MyPage() {
   }
   const email = session.user.email
 
-  // 2) DB 연결
   const client = await clientPromise
 
-  // 3) 내 유저 정보 (your-db-name.users)
   const userDb = client.db('your-db-name')
   const user = await userDb
     .collection<UserInfo>('users')
@@ -72,15 +64,13 @@ export default async function MyPage() {
     )
   }
 
-  // 4) follows 컬렉션에서 내가 팔로우한 사람(email) 조회
   const followDocs = await client
-    .db() // 기본 DB 안의 follows 컬렉션
+    .db()
     .collection<{ follower: string; following: string }>('follows')
     .find({ follower: email })
     .toArray()
   const followingEmails = followDocs.map((d) => d.following)
 
-  // 5) 팔로우한 사용자 정보 가져오기 (your-db-name.users)
   const followUsers: UserInfo[] = followingEmails.length
     ? await userDb
         .collection<UserInfo>('users')
@@ -90,8 +80,6 @@ export default async function MyPage() {
         )
         .toArray()
     : []
-
-  // 6) 내가 업로드한 파일 목록 (기본 DB.files)
   const files = await client
     .db()
     .collection('files')
@@ -123,7 +111,6 @@ export default async function MyPage() {
         <div>
           <h1 className="text-2xl font-bold text-purple-600">{user.name}</h1>
           <p className="text-gray-500">{user.email}</p>
-          {/* 설명이 있을 경우만 표시 */}
           {user.description && (
             <p className="text-sm text-gray-500 mt-2">{user.description}</p>
           )}

@@ -1,5 +1,3 @@
-// src/app/api/messages/route.ts
-
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
@@ -8,11 +6,7 @@ import { ObjectId } from 'mongodb'
 
 export const runtime = 'nodejs'
 
-// ───────────────────────────────────────────────────────────────────────────
-// GET: 대화방(chatId)에 속한 모든 메시지를 가져오고, 상대가 보낸 메시지는 read=true로 표시
-// ───────────────────────────────────────────────────────────────────────────
 export async function GET(req: Request) {
-  // 1) 로그인 확인
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -22,7 +16,6 @@ export async function GET(req: Request) {
   }
   const me = session.user.email
 
-  // 2) URL에서 chatId 파라미터 추출
   const url = new URL(req.url)
   const chatIdParam = url.searchParams.get('chatId')
   if (!chatIdParam) {
@@ -42,7 +35,6 @@ export async function GET(req: Request) {
   const client = await clientPromise
   const db = client.db()
 
-  // 3) "상대 → 나" 방향의 안 읽은 메시지를 모두 읽음 처리
   await db
     .collection('messages')
     .updateMany(
@@ -50,30 +42,24 @@ export async function GET(req: Request) {
       { $set: { read: true } }
     )
 
-  // 4) 해당 chatId(파일ID 포함)에 속한 나↔상대의 모든 메시지 조회
   const raw = await db
     .collection('messages')
     .find({ fileId, $or: [{ from: me }, { to: me }] })
     .sort({ createdAt: 1 })
     .toArray()
 
-  // 5) author 구분 후 리턴
   const result = raw.map((m: any) => ({
     id: m._id.toString(),
     author: m.from === me ? 'me' : 'them',
     content: m.content,
     timestamp: m.createdAt.toISOString(),
-    edited: !!m.edited, // 수정 여부 플래그
+    edited: !!m.edited,
   }))
 
   return NextResponse.json({ messages: result })
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// POST: 새로운 메시지를 저장
-// ───────────────────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
-  // 1) 로그인 확인
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -83,7 +69,6 @@ export async function POST(req: Request) {
   }
   const me = session.user.email
 
-  // 2) 요청 바디 파싱
   const { to, fileId, content } = await req.json()
   if (!to || !fileId || !content) {
     return NextResponse.json(
@@ -98,7 +83,6 @@ export async function POST(req: Request) {
     )
   }
 
-  // 3) 파일 소유자(ownerEmail) 조회
   const client = await clientPromise
   const db = client.db()
   const fileDoc = await db
@@ -113,10 +97,8 @@ export async function POST(req: Request) {
   }
   const ownerEmail = fileDoc.ownerEmail
 
-  // 4) chatId: 항상 “ownerEmail-fileId”
   const chatId = `${ownerEmail}-${fileId}`
 
-  // 5) 메시지 저장 (read=false, edited=false)
   const message = {
     chatId,
     from: me,
@@ -130,7 +112,6 @@ export async function POST(req: Request) {
 
   const { insertedId } = await db.collection('messages').insertOne(message)
 
-  // 6) 저장된 메시지 바로 반환
   return NextResponse.json({
     id: insertedId.toString(),
     author: 'me',

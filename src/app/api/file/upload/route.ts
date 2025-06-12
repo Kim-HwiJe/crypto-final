@@ -1,4 +1,3 @@
-// src/app/api/file/upload/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
@@ -14,7 +13,6 @@ import fs from 'fs'
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
-  // 0) 로그인 확인
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json(
@@ -90,9 +88,6 @@ export async function POST(request: Request) {
       )
     )
 
-    // ——————————————————————
-    // 이하 “원래 단일 업로드 로직” 그대로 처리
-    // (암호화 → GridFS 업로드 → 메타 저장 → 임시 청크 파일 삭제)
     const originalName = filename
     const title = formData.get('title')?.toString() || ''
     const description = formData.get('description')?.toString() || ''
@@ -155,7 +150,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5) GridFS 업로드
     const client = await clientPromise
     const db = client.db()
     const bucket = new GridFSBucket(db, { bucketName: 'uploads' })
@@ -176,7 +170,7 @@ export async function POST(request: Request) {
         ownerEmail,
         ownerName,
         ownerAvatar,
-        plainLength, // plainLength를 GridFS metadata에도 저장
+        plainLength,
       },
     })
 
@@ -190,7 +184,6 @@ export async function POST(request: Request) {
       hashedLockPassword = await bcryptHash(rawLockPwd, 10)
     }
 
-    // 7) 메타 저장 (files 컬렉션)
     await db.collection('files').insertOne({
       _id: fileId,
       title,
@@ -207,10 +200,9 @@ export async function POST(request: Request) {
       ownerAvatar,
       expiresAt,
       views: 0,
-      plainLength, // files 컬렉션에 plainLength 저장
+      plainLength,
     })
 
-    // 8) 임시 청크 파일 삭제
     sortedChunks.forEach((chunkFileName) =>
       fs.unlinkSync(path.join(tempDir, chunkFileName))
     )
@@ -218,9 +210,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ id: fileId.toString() })
   }
 
-  // ——————————————————————
-  // “단일 업로드 모드” (chunk 필드가 없는 경우)
-  // 2) formData에서 file Blob 가져오기
   const title = formData.get('title')?.toString() || ''
   const description = formData.get('description')?.toString() || ''
   const fileBlob = formData.get('file') as Blob | null
@@ -229,7 +218,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: '파일이 필요합니다.' }, { status: 400 })
   }
 
-  // ② plainLength 받아오기
   const plainLengthRawSingle = formData.get('plainLength')?.toString()
   const plainLengthSingle = plainLengthRawSingle
     ? parseInt(plainLengthRawSingle, 10)
@@ -241,18 +229,14 @@ export async function POST(request: Request) {
     )
   }
 
-  // 원본명
   const originalName = (fileBlob as any).name
 
-  // 암호화 모드
   const isEncrypted = formData.get('isEncrypted') === 'true'
   const rawAlgo = formData.get('algorithm')?.toString() || ''
   const algorithm = rawAlgo.toLowerCase()
 
-  // 복호화 비밀번호
   const rawLockPwd = formData.get('lockPassword')?.toString() || ''
 
-  // 만료일
   const expiresRaw = formData.get('expiresAt')?.toString()
   let expiresAt: Date | null = null
   if (expiresRaw) {
@@ -265,10 +249,8 @@ export async function POST(request: Request) {
     }
   }
 
-  // 3) 파일 버퍼 (원본 Blob → Buffer)
   const origBuffer = Buffer.from(await fileBlob.arrayBuffer())
 
-  // 4) 암호화 (원래 로직과 동일)
   let buffer = origBuffer
   let encryptionMeta: Record<string, string> = {}
   if (isEncrypted) {
@@ -308,7 +290,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // 5) GridFS 업로드 (원래 로직과 동일)
   const client = await clientPromise
   const db = client.db()
   const bucket = new GridFSBucket(db, { bucketName: 'uploads' })
@@ -338,13 +319,11 @@ export async function POST(request: Request) {
   )
   const fileId = uploadStream.id as ObjectId
 
-  // 6) 암호문 접근용 비밀번호 해시
   let hashedLockPassword: string | undefined
   if (isEncrypted) {
     hashedLockPassword = await bcryptHash(rawLockPwd, 10)
   }
 
-  // 7) 메타 저장
   await db.collection('files').insertOne({
     _id: fileId,
     title,
@@ -361,7 +340,7 @@ export async function POST(request: Request) {
     ownerAvatar,
     expiresAt,
     views: 0,
-    plainLength: plainLengthSingle, // files 컬렉션에 plainLength 저장
+    plainLength: plainLengthSingle,
   })
 
   return NextResponse.json({ id: fileId.toString() })

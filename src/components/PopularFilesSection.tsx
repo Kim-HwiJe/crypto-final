@@ -1,14 +1,9 @@
-// src/components/PopularFilesSection.tsx
 'use client'
 
 import Image from 'next/image'
 import Link from 'next/link'
 import React, { useState, useMemo, useEffect } from 'react'
 
-/**
- * FileCard 타입 정의
- * - ownerEmail: 파일을 업로드한 사용자의 이메일 (아바타 조회용)
- */
 interface FileCard {
   id: string
   ownerEmail: string
@@ -37,7 +32,6 @@ const ICON_MAP: Record<string, string> = {
 const PopularFilesSection: React.FC<Props> = ({ files, categories }) => {
   const [selectedCat, setSelectedCat] = useState<string>('전체')
 
-  // “전체” 선택 시에는 조회수 상위 3개만, 그 외는 해당 카테고리 전체
   const filtered = useMemo(() => {
     if (selectedCat === '전체') {
       return [...files].sort((a, b) => b.views - a.views).slice(0, 3)
@@ -97,11 +91,9 @@ interface FileCardItemProps {
 }
 
 const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
-  // 기본 아바타 URL
   const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
 
   useEffect(() => {
-    // ownerEmail이 undefined가 아닌지 확인
     if (!file.ownerEmail) {
       console.warn('ownerEmail is undefined for file:', file.id)
       return
@@ -109,7 +101,6 @@ const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
 
     const fetchAvatar = async () => {
       try {
-        // your-db-name DB에서 유저의 avatarUrl만 가져오는 API 호출
         const res = await fetch(
           `/api/user/avatar?email=${encodeURIComponent(file.ownerEmail)}`
         )
@@ -141,7 +132,7 @@ const FileCardItem: React.FC<FileCardItemProps> = ({ file }) => {
         />
       </div>
       <div className="p-4 space-y-3">
-        {/* 업로더 정보: your-db-name DB에서 가져온 최신 아바타 */}
+        {/* 업로더 정보*/}
         <div className="flex items-center gap-3">
           <Image
             src={avatarUrl}

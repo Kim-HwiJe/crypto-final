@@ -1,5 +1,3 @@
-// src/app/api/search/route.ts
-
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 
@@ -19,7 +17,6 @@ export async function GET(request: Request) {
   const userDb = client.db('your-db-name')
 
   if (type === 'user') {
-    // 사용자 검색
     const users = await userDb
       .collection('users')
       .find({ name: { $regex: query, $options: 'i' } })
@@ -27,7 +24,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ results: users })
   } else if (type === 'file') {
-    // 파일 검색
     const files = await client
       .db()
       .collection('files')

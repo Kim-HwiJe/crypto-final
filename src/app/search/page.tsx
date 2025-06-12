@@ -1,4 +1,3 @@
-// src/app/search/page.tsx
 import React, { Suspense } from 'react'
 import SearchResults from './SearchResults'
 

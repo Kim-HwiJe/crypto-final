@@ -1,10 +1,6 @@
-// ───────────────────────────────────────────────────────────────────────────
-//  파일 경로: src/app/aboutus/page.tsx
-// ───────────────────────────────────────────────────────────────────────────
-
 'use client'
 
-import React from 'react' // ← 여기 추가
+import React from 'react'
 import { useState } from 'react'
 import Image from 'next/image'
 

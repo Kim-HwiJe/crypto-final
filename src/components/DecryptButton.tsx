@@ -16,7 +16,6 @@ export default function DecryptButton({ fileId }: DecryptButtonProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // form 외부 클릭 시 닫기
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (
@@ -75,7 +74,6 @@ export default function DecryptButton({ fileId }: DecryptButtonProps) {
         return
       }
 
-      // Content-Disposition 에서 원본 파일명 꺼내기
       const disp = xhr.getResponseHeader('Content-Disposition') || ''
       let filename = 'download'
       const m = /filename\*=UTF-8''(.+)$/.exec(disp)

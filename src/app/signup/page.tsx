@@ -4,7 +4,6 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-// 회원가입 API 호출 함수
 async function registerUser(data: {
   name: string
   email: string
@@ -107,7 +106,6 @@ const SignUpPage: React.FC = () => {
           />
         </div>
 
-        {/* Submit 버튼 및 링크 */}
         <div className="flex items-center justify-between pt-4">
           <button
             type="submit"

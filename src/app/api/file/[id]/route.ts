@@ -8,14 +8,10 @@ import { hash as bcryptHash } from 'bcryptjs'
 
 export const runtime = 'nodejs'
 
-// ─────────────────────────────────────────────────────
-// [GET] /api/file/[id] — 파일 정보 조회
-// ─────────────────────────────────────────────────────
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // params는 Promise<{ id: string }> 형태이므로 await 처리
   const { id } = await params
 
   if (!ObjectId.isValid(id)) {
@@ -37,7 +33,6 @@ export async function GET(
     )
   }
 
-  // 조회수 1 증가
   await filesColl.updateOne({ _id: new ObjectId(id) }, { $inc: { views: 1 } })
 
   return NextResponse.json({
@@ -58,9 +53,6 @@ export async function GET(
   })
 }
 
-// ─────────────────────────────────────────────────────
-// [PATCH] /api/file/[id] — 파일 메타데이터 수정
-// ─────────────────────────────────────────────────────
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -130,9 +122,6 @@ export async function PATCH(
   return NextResponse.json({ message: '메타데이터가 수정되었습니다.' })
 }
 
-// ─────────────────────────────────────────────────────
-// [DELETE] /api/file/[id] — 파일 및 메타 정보 삭제
-// ─────────────────────────────────────────────────────
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

@@ -1,5 +1,3 @@
-// src/app/user/[userId]/page.tsx
-
 import { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -9,16 +7,14 @@ import clientPromise from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 import FollowButton from '@/components/FollowButton'
 
-// — 사용자 정보 타입
 type UserInfo = {
   _id: ObjectId
   name: string
   email: string
   avatarUrl: string
-  description?: string // 설명 필드 추가
+  description?: string
 }
 
-// — 파일 목록 항목 타입
 type FileItem = {
   id: string
   title: string
@@ -30,7 +26,6 @@ type FileItem = {
   isLocked: boolean
 }
 
-// — 카테고리 → 아이콘 매핑
 const ICON_MAP: Record<string, string> = {
   음악: '/icons/audio.png',
   이미지: '/icons/image.png',
@@ -54,20 +49,16 @@ export async function generateMetadata({
 }
 
 export default async function UserPage({ params }: PageProps) {
-  // 1) URL params 에서 email 꺼내기
   const { userId } = await params
   const email = decodeURIComponent(userId)
 
-  // 2) 내 세션 조회 (내 페이지인지 확인)
   const session = await getServerSession(authOptions)
   const me = session?.user?.email
   const isMyPage = me === email
 
-  // 3) DB 커넥션
   const client = await clientPromise
   const userDb = client.db('your-db-name')
 
-  // 4) 사용자 정보 조회
   const user = await userDb
     .collection<UserInfo>('users')
     .findOne({ email }, { projection: { password: 0 } })
@@ -79,7 +70,6 @@ export default async function UserPage({ params }: PageProps) {
     )
   }
 
-  // 5) 내가 업로드한 파일들 조회 (기본 DB.files)
   const files = await client
     .db()
     .collection('files')
@@ -98,7 +88,6 @@ export default async function UserPage({ params }: PageProps) {
     isLocked: f.isLocked,
   }))
 
-  // 6) (본인 페이지인 경우) follows 컬렉션에서 내가 팔로우한 이메일 목록 가져오기
   let followUsers: UserInfo[] = []
   if (isMyPage) {
     const followDocs = await client
@@ -134,12 +123,10 @@ export default async function UserPage({ params }: PageProps) {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-purple-600">{user.name}</h1>
           <p className="text-gray-500">{user.email}</p>
-          {/* 설명이 있을 경우만 표시 */}
           {user.description && (
             <p className="mt-2 text-sm text-gray-600">{user.description}</p>
           )}
         </div>
-        {/* 내 페이지가 아니면 팔로우 버튼 */}
         {!isMyPage && <FollowButton targetEmail={email} />}
       </div>
 
@@ -200,7 +187,6 @@ export default async function UserPage({ params }: PageProps) {
         )}
       </section>
 
-      {/* 내가 팔로우한 사용자 (본인 페이지일 때만) */}
       {isMyPage && (
         <section>
           <h2 className="text-xl font-semibold mb-4 text-gray-400">

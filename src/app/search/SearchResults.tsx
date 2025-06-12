@@ -1,4 +1,3 @@
-// src/app/search/SearchResults.tsx
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
@@ -7,15 +6,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
-// 유저 정보 타입
 interface UserInfo {
   _id: string
   email: string
   name: string
-  // 이제 avatarUrl 은 API 호출로 가져옵니다
 }
 
-// 파일 결과 타입
 interface FileInfo {
   id: string
   _id?: string
@@ -28,7 +24,6 @@ interface FileInfo {
   isLocked: boolean
   views: number
   category: string
-  // ownerAvatar 필드는 더 이상 직접 사용하지 않습니다
 }
 
 const ICON_MAP: Record<string, string> = {
@@ -44,20 +39,17 @@ const ICON_MAP: Record<string, string> = {
 export default function SearchResults() {
   const searchParams = useSearchParams()
   const query = searchParams.get('query')
-  const type = searchParams.get('type') // 'user' 또는 'file'
+  const type = searchParams.get('type')
 
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
 
-  // 페이지네이션 상태
   const [page, setPage] = useState(1)
   const pageSize = 9
 
-  // 이메일 → avatarUrl 매핑
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({})
 
-  // 검색 API 호출
   useEffect(() => {
     if (!query || !type) return
 
@@ -86,7 +78,6 @@ export default function SearchResults() {
       })
   }, [query, type])
 
-  // paginated 결과 계산
   const totalPages = useMemo(() => {
     return Math.ceil(results.length / pageSize)
   }, [results])
@@ -96,7 +87,6 @@ export default function SearchResults() {
     return results.slice(start, start + pageSize)
   }, [results, page])
 
-  // paginated 변경 시마다 해당 이메일들의 아바타를 fetch
   useEffect(() => {
     if (!paginated.length) return
 
@@ -108,7 +98,6 @@ export default function SearchResults() {
         email = (item as FileInfo).ownerEmail
       }
       if (email && !avatarMap[email]) {
-        // avatarMap에 없으면 fetch
         fetch(`/api/user/avatar?email=${encodeURIComponent(email)}`)
           .then((res) => {
             if (!res.ok) throw new Error(`status ${res.status}`)

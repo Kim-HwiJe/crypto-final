@@ -1,4 +1,3 @@
-// src/app/messages/MessagesInner.tsx
 'use client'
 
 import React, {
@@ -33,30 +32,22 @@ export default function MessagesInner() {
   const { data: session } = useSession()
   const me = session?.user?.email
 
-  // URL 파라미터
   const searchParams = useSearchParams()
   const to = searchParams.get('to') || ''
   const fileId = searchParams.get('fileId') || ''
 
-  // 파일 메타 / 아바타 / 메시지 상태
   const [fileMeta, setFileMeta] = useState<FileMeta | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string>('/default-avatar.png')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMsg, setNewMsg] = useState('')
 
-  // “수정 모드” 관련 상태
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
 
-  // “수정/삭제 버튼”을 보여줄 메시지 ID
   const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null)
 
-  // 채팅방 고유 ID: "to-fileId"
   const chatId = `${to}-${fileId}`
 
-  // ─────────────────────────────────────────────────────────────
-  // 1) 파일 메타 로드
-  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!fileId) return
     fetch(`/api/file/${fileId}`)
@@ -74,9 +65,6 @@ export default function MessagesInner() {
       })
   }, [fileId])
 
-  // ─────────────────────────────────────────────────────────────
-  // 2) 업로더 아바타 로드
-  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!fileMeta?.ownerEmail) return
     fetch(`/api/user/${encodeURIComponent(fileMeta.ownerEmail)}`)
@@ -87,14 +75,9 @@ export default function MessagesInner() {
       .then((user) => {
         setAvatarUrl(user.avatarUrl || '/default-avatar.png')
       })
-      .catch(() => {
-        // 실패해도 기본 아바타 유지
-      })
+      .catch(() => {})
   }, [fileMeta?.ownerEmail])
 
-  // ─────────────────────────────────────────────────────────────
-  // 3) 메시지 불러오기
-  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!me || !to || !fileId) return
     fetch(`/api/messages?chatId=${encodeURIComponent(chatId)}`)
@@ -111,9 +94,6 @@ export default function MessagesInner() {
       })
   }, [me, to, fileId, chatId])
 
-  // ─────────────────────────────────────────────────────────────
-  // 4) 메시지 전송 로직
-  // ─────────────────────────────────────────────────────────────
   const handleSend = async (e: FormEvent) => {
     e.preventDefault()
     if (!newMsg.trim() || !me || !to || !fileId) return
@@ -136,9 +116,6 @@ export default function MessagesInner() {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 5) Enter 키로 전송하기
-  // ─────────────────────────────────────────────────────────────
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -146,9 +123,6 @@ export default function MessagesInner() {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 6) 메시지 삭제
-  // ─────────────────────────────────────────────────────────────
   const deleteMessage = async (msgId: string) => {
     try {
       const res = await fetch(`/api/messages/${msgId}`, {
@@ -162,9 +136,6 @@ export default function MessagesInner() {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 7) 메시지 수정 저장
-  // ─────────────────────────────────────────────────────────────
   const saveEdit = async (msgId: string) => {
     if (!editContent.trim()) return
     try {
@@ -189,9 +160,6 @@ export default function MessagesInner() {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 8) 날짜별로 메시지 그룹핑
-  // ─────────────────────────────────────────────────────────────
   const grouped = messages.reduce<Record<string, ChatMessage[]>>((acc, msg) => {
     const date = new Date(msg.timestamp).toLocaleDateString('ko-KR')
     if (!acc[date]) acc[date] = []
@@ -199,20 +167,12 @@ export default function MessagesInner() {
     return acc
   }, {})
 
-  // ─────────────────────────────────────────────────────────────
-  // 9) 메시지 버블 클릭 시 “수정/삭제 버튼” 토글
-  //     → 편집 중인 메시지일 때는 무시
-  // ─────────────────────────────────────────────────────────────
   const handleBubbleClick = (msgId: string, e: MouseEvent) => {
     e.stopPropagation()
-    // 편집 모드가 active 상태라면, 토글 동작을 건너뛴다
     if (editingId === msgId) return
     setSelectedMsgId((prev) => (prev === msgId ? null : msgId))
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // 10) 화면을 클릭하면 선택 해제 (버튼 숨기기)
-  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const handleClickOutside = () => {
       setSelectedMsgId(null)
@@ -271,7 +231,6 @@ export default function MessagesInner() {
             </div>
 
             {fileMeta && (
-              // 파일명 클릭 시 상세페이지로 이동
               <Link
                 href={`/file/${fileId}`}
                 className="text-right hover:underline"
@@ -296,13 +255,11 @@ export default function MessagesInner() {
                       msg.author === 'me' ? 'justify-end' : ''
                     }`}
                     onClick={(e) => {
-                      // 자신의 메시지이고, 편집 모드가 아니면
                       if (msg.author === 'me' && editingId !== msg.id) {
                         handleBubbleClick(msg.id, e)
                       }
                     }}
                   >
-                    {/* 상대의 메시지인 경우: 아바타 */}
                     {msg.author === 'them' && (
                       <Image
                         src={avatarUrl}
@@ -313,10 +270,8 @@ export default function MessagesInner() {
                       />
                     )}
 
-                    {/* 메시지 버블 + (수정/삭제 or 편집) */}
                     <div className="max-w-[70%] relative">
                       {editingId === msg.id ? (
-                        // 편집 모드 (textarea + 저장/취소 버튼)
                         <div className="space-y-2">
                           <textarea
                             rows={2}
@@ -348,7 +303,6 @@ export default function MessagesInner() {
                           </div>
                         </div>
                       ) : (
-                        // 일반 표시 모드 (버블 + “수정/삭제 버튼” 영역)
                         <div className="space-y-1">
                           <div
                             className={`prose max-w-prose p-4 mt-2 rounded-lg whitespace-pre-wrap ${
@@ -374,7 +328,6 @@ export default function MessagesInner() {
                             </div>
                           </div>
 
-                          {/* “수정/삭제” 버튼: 자신의 메시지가 선택된 경우 */}
                           {selectedMsgId === msg.id && (
                             <div className="flex space-x-3 ml-4 mt-1">
                               <button
@@ -403,7 +356,6 @@ export default function MessagesInner() {
                       )}
                     </div>
 
-                    {/* 자신의 메시지인 경우: 내 아바타 (편집 모드 제외) */}
                     {msg.author === 'me' && editingId !== msg.id && (
                       <Image
                         src={session?.user?.image || '/default-avatar.png'}

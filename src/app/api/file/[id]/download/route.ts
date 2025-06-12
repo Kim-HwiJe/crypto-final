@@ -1,12 +1,9 @@
-// src/app/api/file/[id]/download/route.ts
 import { NextResponse } from 'next/server'
 import clientPromise from '@/lib/mongodb'
 import { ObjectId, GridFSBucket } from 'mongodb'
 
 export const runtime = 'nodejs'
 
-// Named export 형식으로, 두 번째 인자(context)는 any로 두어
-// Next.js가 내부적으로 params 타입을 올바르게 추론하게 합니다.
 export async function GET(request: Request, context: any) {
   const { id } = context.params as { id: string }
 
@@ -20,7 +17,6 @@ export async function GET(request: Request, context: any) {
   const client = await clientPromise
   const db = client.db()
 
-  // GridFS에서 파일 문서 찾기
   const filesColl = db.collection('uploads.files')
   const fileDoc = await filesColl.findOne({ _id: new ObjectId(id) })
   if (!fileDoc) {
@@ -30,11 +26,9 @@ export async function GET(request: Request, context: any) {
     )
   }
 
-  // GridFSBucket을 통해 스트림 열기
   const bucket = new GridFSBucket(db, { bucketName: 'uploads' })
   const downloadStream = bucket.openDownloadStream(new ObjectId(id))
 
-  // Node.js 스트림을 Web Stream으로 감싸기
   const webStream = new ReadableStream({
     start(controller) {
       downloadStream.on('data', (chunk) => controller.enqueue(chunk))
